@@ -35,7 +35,7 @@ function getOutputText(payload: any) {
 }
 
 export async function POST(request: Request) {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = request.headers.get("X-OpenAI-Key") || process.env.OPENAI_API_KEY;
   if (!apiKey) return Response.json({ error: "A chave da inteligência artificial ainda não foi configurada." }, { status: 503 });
 
   const form = await request.formData();

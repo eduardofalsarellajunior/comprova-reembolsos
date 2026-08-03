@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, DragEvent, useMemo, useRef, useState } from "react";
+import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
 
 type Expense = {
   id: string;
@@ -33,6 +33,15 @@ export default function Home() {
   const [dragging, setDragging] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [notice, setNotice] = useState("");
+  const [apiKey, setApiKey] = useState("");
+  const [keyDraft, setKeyDraft] = useState("");
+  const [showSettings, setShowSettings] = useState(false);
+
+  useEffect(() => {
+    const saved = sessionStorage.getItem("comprova-openai-key") || "";
+    setApiKey(saved);
+    setKeyDraft(saved);
+  }, []);
 
   const total = useMemo(() => expenses.reduce((sum, row) => sum + (row.amount || 0), 0), [expenses]);
 
@@ -51,6 +60,11 @@ export default function Home() {
   }
 
   async function analyze() {
+    if (!apiKey) {
+      setShowSettings(true);
+      setNotice("Configure sua chave da OpenAI para iniciar a leitura.");
+      return;
+    }
     const queue = files.filter((item) => item.status === "pronto" || item.status === "erro");
     if (!queue.length) return;
     setProcessing(true);
@@ -61,7 +75,7 @@ export default function Home() {
       try {
         const body = new FormData();
         body.append("file", item.file);
-        const response = await fetch("/api/analyze", { method: "POST", body });
+        const response = await fetch("/api/analyze", { method: "POST", body, headers: { "X-OpenAI-Key": apiKey } });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload.error || "Não foi possível ler este arquivo.");
         const rows: Expense[] = payload.expenses.map((expense: Omit<Expense, "id" | "sourceFile">) => ({
@@ -107,13 +121,33 @@ export default function Home() {
     URL.revokeObjectURL(url);
   }
 
+  function saveKey() {
+    const clean = keyDraft.trim();
+    if (!clean.startsWith("sk-")) {
+      setNotice("A chave parece incompleta. Ela deve começar com “sk-”.");
+      return;
+    }
+    sessionStorage.setItem("comprova-openai-key", clean);
+    setApiKey(clean);
+    setShowSettings(false);
+    setNotice("Chave conectada somente nesta sessão do navegador.");
+  }
+
+  function removeKey() {
+    sessionStorage.removeItem("comprova-openai-key");
+    setApiKey("");
+    setKeyDraft("");
+    setShowSettings(false);
+    setNotice("Chave removida deste navegador.");
+  }
+
   return (
     <main>
       <header className="topbar">
         <a className="brand" href="#inicio" aria-label="Comprova início">
           <span className="brandMark">C</span><span>comprova</span>
         </a>
-        <span className="privacy"><span className="privacyDot" /> Seus arquivos não ficam armazenados</span>
+        <div className="topActions"><span className="privacy"><span className="privacyDot" /> Seus arquivos não ficam armazenados</span><button className={`settingsButton ${apiKey ? "connected" : ""}`} onClick={() => setShowSettings(true)}>{apiKey ? "IA conectada" : "Configurar IA"}</button></div>
       </header>
 
       <section className="hero" id="inicio">
@@ -123,6 +157,7 @@ export default function Home() {
       </section>
 
       <section className="workspace" aria-label="Importação de comprovantes">
+        {!apiKey && <button className="setupBanner" onClick={() => setShowSettings(true)}><span>1</span><div><strong>Conecte a inteligência artificial</strong><small>Insira sua chave privada uma vez por sessão para liberar a leitura.</small></div><b>Configurar →</b></button>}
         <div
           className={`dropzone ${dragging ? "dragging" : ""}`}
           onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
@@ -190,6 +225,23 @@ export default function Home() {
       )}
 
       <footer><span>Comprova</span><p>Organize. Confira. Reembolse.</p></footer>
+
+      {showSettings && (
+        <div className="modalBackdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowSettings(false); }}>
+          <section className="modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+            <button className="modalClose" onClick={() => setShowSettings(false)} aria-label="Fechar">×</button>
+            <span className="modalEyebrow">Acesso privado</span>
+            <h2 id="settings-title">Conectar à OpenAI</h2>
+            <p>Cole sua chave abaixo. Ela fica apenas nesta aba do navegador e é removida quando a sessão termina.</p>
+            <label htmlFor="api-key">Chave da API</label>
+            <input id="api-key" type="password" value={keyDraft} onChange={(event) => setKeyDraft(event.target.value)} placeholder="sk-proj-••••••••••••" autoComplete="off" />
+            <div className="keySafety"><span>✓</span><p>A chave não é salva no aplicativo nem aparece na tabela. Ela é usada somente para processar seus comprovantes.</p></div>
+            <button className="primary modalPrimary" onClick={saveKey}>Salvar nesta sessão <span>→</span></button>
+            {apiKey && <button className="removeKey" onClick={removeKey}>Remover chave deste navegador</button>}
+            <a className="keyHelp" href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">Ainda não tenho uma chave — abrir a OpenAI ↗</a>
+          </section>
+        </div>
+      )}
     </main>
   );
 }

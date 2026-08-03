@@ -11,6 +11,9 @@ button { cursor:pointer; }
 .brandMark { width:34px; height:34px; display:grid; place-items:center; border-radius:50% 50% 48% 52%/45% 55% 45% 55%; background:var(--lime); font-family:var(--font-serif); font-style:italic; font-size:22px; }
 .privacy { font-size:12px; font-weight:700; color:var(--muted); display:flex; align-items:center; gap:8px; }
 .privacyDot { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 0 4px var(--mint); }
+.topActions { display:flex; align-items:center; gap:18px; }
+.settingsButton { border:1px solid var(--ink); border-radius:8px; padding:8px 12px; background:transparent; color:var(--ink); font-size:11px; font-weight:800; }
+.settingsButton.connected { border-color:#95b8aa; background:var(--mint); color:var(--green); }
 .hero { padding:76px 6vw 52px; max-width:1040px; margin:auto; text-align:center; }
 .eyebrow { display:inline-flex; align-items:center; gap:8px; text-transform:uppercase; letter-spacing:2.2px; font-size:11px; font-weight:800; color:var(--green); }
 .eyebrow:before { content:""; width:24px; height:2px; background:var(--lime); }
@@ -18,6 +21,11 @@ button { cursor:pointer; }
 .hero h1 em { font-family:var(--font-serif); font-weight:500; color:var(--green); }
 .hero p { max-width:670px; margin:auto; color:var(--muted); font-size:17px; line-height:1.7; }
 .workspace { width:min(900px,88vw); margin:0 auto 80px; }
+.setupBanner { width:100%; margin-bottom:14px; padding:15px 17px; border:1px solid #c7dbd3; border-radius:12px; background:white; display:flex; align-items:center; gap:13px; text-align:left; color:var(--ink); box-shadow:0 8px 25px rgba(38,78,64,.05); }
+.setupBanner>span { width:31px; height:31px; flex:0 0 auto; border-radius:50%; display:grid; place-items:center; background:var(--lime); font-weight:900; }
+.setupBanner div { flex:1; display:flex; flex-direction:column; gap:2px; }
+.setupBanner small { color:var(--muted); }
+.setupBanner b { color:var(--green); font-size:12px; }
 .dropzone { border:1.5px dashed #9eb9af; border-radius:18px; background:linear-gradient(135deg,#f7fbf8,#eff7f2); padding:58px 24px; text-align:center; transition:.2s; cursor:pointer; box-shadow:0 16px 50px rgba(38,78,64,.06); }
 .dropzone:hover,.dropzone.dragging { border-color:var(--green); transform:translateY(-2px); box-shadow:0 22px 60px rgba(38,78,64,.12); }
 .dropzone input { display:none; }
@@ -72,10 +80,27 @@ tfoot td { font-weight:800; background:#f7f8f4; border:0; font-size:12px; }
 footer { padding:34px 6vw; display:flex; justify-content:space-between; color:var(--muted); font-size:12px; }
 footer span { color:var(--ink); font-weight:900; }
 footer p { margin:0; }
+.modalBackdrop { position:fixed; inset:0; z-index:50; display:grid; place-items:center; padding:20px; background:rgba(13,30,24,.58); backdrop-filter:blur(5px); }
+.modal { position:relative; width:min(470px,100%); border-radius:20px; background:var(--paper); padding:38px; box-shadow:0 30px 90px rgba(0,0,0,.28); }
+.modalClose { position:absolute; right:18px; top:15px; border:0; background:transparent; color:var(--muted); font-size:25px; }
+.modalEyebrow { color:var(--green); text-transform:uppercase; letter-spacing:1.8px; font-size:10px; font-weight:900; }
+.modal h2 { margin:7px 0 8px; font-size:30px; letter-spacing:-1.1px; }
+.modal>p { margin:0 0 24px; color:var(--muted); font-size:13px; line-height:1.6; }
+.modal label { display:block; margin-bottom:7px; font-size:11px; font-weight:900; text-transform:uppercase; letter-spacing:.8px; }
+.modal>input { width:100%; border:1px solid #bfc9c4; border-radius:9px; padding:13px; background:white; color:var(--ink); }
+.modal>input:focus { outline:2px solid var(--lime); border-color:var(--green); }
+.keySafety { margin-top:13px; padding:11px; display:flex; gap:9px; border-radius:9px; background:var(--mint); color:var(--green); }
+.keySafety span { font-weight:900; }
+.keySafety p { margin:0; font-size:11px; line-height:1.45; }
+.modalPrimary { margin-top:18px; }
+.removeKey { width:100%; margin-top:10px; border:0; background:transparent; color:#9a4432; font-size:11px; text-decoration:underline; }
+.keyHelp { display:block; margin-top:17px; text-align:center; color:var(--green); font-size:11px; font-weight:800; }
 @media (max-width:720px) {
   .topbar { height:64px; padding:0 5vw; }
   .privacy { font-size:0; }
   .privacy:after { content:"Privado"; font-size:11px; }
+  .topActions { gap:10px; }
+  .settingsButton { padding:7px 9px; }
   .hero { padding:55px 5vw 38px; }
   .hero h1 { font-size:48px; letter-spacing:-3px; }
   .hero p { font-size:15px; }
@@ -88,4 +113,6 @@ footer p { margin:0; }
   .actions button { flex:1; }
   .fileItem { gap:9px; }
   .status { max-width:80px; text-align:right; }
+  .setupBanner b { display:none; }
+  .modal { padding:33px 23px; }
 }
