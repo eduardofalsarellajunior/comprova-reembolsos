@@ -20,6 +20,77 @@ type PendingFile = { id: string; file: File; status: "pronto" | "lendo" | "concl
 const acceptedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const categories = ["Alimentação", "Hospedagem", "Transporte", "Combustível", "Pedágio", "Estacionamento", "Material", "Outros"];
 
+const expenseSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["expenses"],
+  properties: {
+    expenses: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["supplier", "date", "amount", "currency", "category", "description", "confidence", "notes"],
+        properties: {
+          supplier: { type: "string" },
+          date: { type: "string", description: "Data YYYY-MM-DD ou string vazia" },
+          amount: { anyOf: [{ type: "number" }, { type: "null" }] },
+          currency: { type: "string" },
+          category: { type: "string", enum: categories },
+          description: { type: "string" },
+          confidence: { type: "string", enum: ["alta", "media", "baixa"] },
+          notes: { type: "string" },
+        },
+      },
+    },
+  },
+};
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Não foi possível abrir o arquivo."));
+    reader.readAsDataURL(file);
+  });
+}
+
+function responseText(payload: any) {
+  if (typeof payload.output_text === "string") return payload.output_text;
+  for (const item of payload.output || []) {
+    for (const content of item.content || []) if (content.type === "output_text" && content.text) return content.text;
+  }
+  return "";
+}
+
+async function readReceipt(file: File, apiKey: string) {
+  const dataUrl = await fileToDataUrl(file);
+  const documentInput = file.type === "application/pdf"
+    ? { type: "input_file", filename: file.name, file_data: dataUrl, detail: "high" }
+    : { type: "input_image", image_url: dataUrl, detail: "high" };
+  const response = await fetch("https://api.openai.com/v1/responses", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: "gpt-5.6-terra",
+      reasoning: { effort: "low" },
+      store: false,
+      input: [{ role: "user", content: [
+        { type: "input_text", text: "Leia este comprovante para prestação de contas no Brasil. Extraia uma despesa por comprovante encontrado. Use o valor total efetivamente pago, não subtotal, troco ou impostos. A data deve ser a data da compra ou serviço. Classifique pelo conteúdo real. Se algo não estiver legível, deixe vazio/null e reduza a confiança. Em notes, explique brevemente qualquer dúvida que exija revisão. Não invente dados." },
+        documentInput,
+      ] }],
+      text: { format: { type: "json_schema", name: "receipt_expenses", strict: true, schema: expenseSchema } },
+    }),
+  });
+  const raw = await response.text();
+  let payload: any;
+  try { payload = JSON.parse(raw); }
+  catch { throw new Error(response.status === 413 ? "Arquivo grande demais. Tente uma versão menor." : "O serviço de leitura retornou uma resposta inesperada."); }
+  if (!response.ok) throw new Error(payload?.error?.message || "A IA não conseguiu processar este arquivo.");
+  try { return JSON.parse(responseText(payload)); }
+  catch { throw new Error("A leitura veio incompleta. Tente novamente."); }
+}
+
 function money(value: number | null, currency: string) {
   if (value === null) return "";
   try { return new Intl.NumberFormat("pt-BR", { style: "currency", currency: currency || "BRL" }).format(value); }
@@ -73,11 +144,7 @@ export default function Home() {
     for (const item of queue) {
       setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "lendo", error: undefined } : entry));
       try {
-        const body = new FormData();
-        body.append("file", item.file);
-        const response = await fetch("/api/analyze", { method: "POST", body, headers: { "X-OpenAI-Key": apiKey } });
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload.error || "Não foi possível ler este arquivo.");
+        const payload = await readReceipt(item.file, apiKey);
         const rows: Expense[] = payload.expenses.map((expense: Omit<Expense, "id" | "sourceFile">) => ({
           ...expense,
           id: crypto.randomUUID(),
