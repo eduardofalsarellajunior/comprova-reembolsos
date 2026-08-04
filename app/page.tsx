@@ -1,96 +1,19 @@
 "use client";
 
-import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import type { User } from "@supabase/supabase-js";
+import { categories, type Expense } from "@/lib/expenses";
+import { createClient } from "@/lib/supabase/client";
 
-type Expense = {
+type PendingFile = {
   id: string;
-  sourceFile: string;
-  sourceUrl: string;
-  supplier: string;
-  date: string;
-  amount: number | null;
-  currency: string;
-  category: string;
-  description: string;
-  confidence: "alta" | "media" | "baixa";
-  notes: string;
+  file: File;
+  status: "pronto" | "enviando" | "lendo" | "concluido" | "erro";
+  error?: string;
 };
-
-type PendingFile = { id: string; file: File; sourceUrl: string; status: "pronto" | "lendo" | "concluido" | "erro"; error?: string };
 
 const acceptedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
-const categories = ["Alimentação", "Hospedagem", "Transporte", "Combustível", "Pedágio", "Estacionamento", "Material", "Outros"];
-
-const expenseSchema = {
-  type: "object",
-  additionalProperties: false,
-  required: ["expenses"],
-  properties: {
-    expenses: {
-      type: "array",
-      items: {
-        type: "object",
-        additionalProperties: false,
-        required: ["supplier", "date", "amount", "currency", "category", "description", "confidence", "notes"],
-        properties: {
-          supplier: { type: "string" },
-          date: { type: "string", description: "Data YYYY-MM-DD ou string vazia" },
-          amount: { anyOf: [{ type: "number" }, { type: "null" }] },
-          currency: { type: "string" },
-          category: { type: "string", enum: categories },
-          description: { type: "string" },
-          confidence: { type: "string", enum: ["alta", "media", "baixa"] },
-          notes: { type: "string" },
-        },
-      },
-    },
-  },
-};
-
-function fileToDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result));
-    reader.onerror = () => reject(new Error("Não foi possível abrir o arquivo."));
-    reader.readAsDataURL(file);
-  });
-}
-
-function responseText(payload: any) {
-  if (typeof payload.output_text === "string") return payload.output_text;
-  for (const item of payload.output || []) {
-    for (const content of item.content || []) if (content.type === "output_text" && content.text) return content.text;
-  }
-  return "";
-}
-
-async function readReceipt(file: File, apiKey: string) {
-  const dataUrl = await fileToDataUrl(file);
-  const documentInput = file.type === "application/pdf"
-    ? { type: "input_file", filename: file.name, file_data: dataUrl, detail: "high" }
-    : { type: "input_image", image_url: dataUrl, detail: "high" };
-  const response = await fetch("https://api.openai.com/v1/responses", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: "gpt-5.6-terra",
-      reasoning: { effort: "low" },
-      store: false,
-      input: [{ role: "user", content: [
-        { type: "input_text", text: "Leia este comprovante para prestação de contas no Brasil. Extraia uma despesa por comprovante encontrado. Use o valor total efetivamente pago, não subtotal, troco ou impostos. A data deve ser a data da compra ou serviço. Classifique pelo conteúdo real. Se algo não estiver legível, deixe vazio/null e reduza a confiança. Em notes, explique brevemente qualquer dúvida que exija revisão. Não invente dados." },
-        documentInput,
-      ] }],
-      text: { format: { type: "json_schema", name: "receipt_expenses", strict: true, schema: expenseSchema } },
-    }),
-  });
-  const raw = await response.text();
-  let payload: any;
-  try { payload = JSON.parse(raw); }
-  catch { throw new Error(response.status === 413 ? "Arquivo grande demais. Tente uma versão menor." : "O serviço de leitura retornou uma resposta inesperada."); }
-  if (!response.ok) throw new Error(payload?.error?.message || "A IA não conseguiu processar este arquivo.");
-  try { return JSON.parse(responseText(payload)); }
-  catch { throw new Error("A leitura veio incompleta. Tente novamente."); }
-}
+const supabase = createClient();
 
 function money(value: number | null, currency: string) {
   if (value === null) return "";
@@ -98,30 +21,120 @@ function money(value: number | null, currency: string) {
   catch { return value.toFixed(2).replace(".", ","); }
 }
 
+function safeFileName(name: string) {
+  const extension = name.includes(".") ? `.${name.split(".").pop()}` : "";
+  const base = name.slice(0, extension ? -extension.length : undefined)
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-zA-Z0-9_-]+/g, "-").slice(0, 80);
+  return `${base || "comprovante"}${extension.toLowerCase()}`;
+}
+
+type ExpenseRow = {
+  id: string;
+  receipt_id: string;
+  supplier: string;
+  expense_date: string | null;
+  amount: number | string | null;
+  currency: string;
+  category: string;
+  description: string;
+  confidence: "alta" | "media" | "baixa";
+  notes: string;
+  created_at: string;
+  receipts?: ReceiptSummary;
+};
+
+type ReceiptSummary = { file_name: string; storage_path: string };
+
+function mapExpense(row: ExpenseRow, receipt: ReceiptSummary): Expense {
+  return {
+    id: row.id,
+    receiptId: row.receipt_id,
+    sourceFile: receipt.file_name,
+    storagePath: receipt.storage_path,
+    supplier: row.supplier || "",
+    date: row.expense_date || "",
+    amount: row.amount === null ? null : Number(row.amount),
+    currency: row.currency || "BRL",
+    category: row.category || "Outros",
+    description: row.description || "",
+    confidence: row.confidence || "baixa",
+    notes: row.notes || "",
+    createdAt: row.created_at,
+  };
+}
+
 export default function Home() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [authBusy, setAuthBusy] = useState(false);
   const [files, setFiles] = useState<PendingFile[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [dragging, setDragging] = useState(false);
   const [processing, setProcessing] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
   const [notice, setNotice] = useState("");
-  const [apiKey, setApiKey] = useState("");
-  const [keyDraft, setKeyDraft] = useState("");
-  const [showSettings, setShowSettings] = useState(false);
 
   useEffect(() => {
-    const saved = sessionStorage.getItem("comprova-openai-key") || "";
-    setApiKey(saved);
-    setKeyDraft(saved);
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user);
+      setAuthLoading(false);
+      if (data.user) loadHistory();
+    });
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null));
+    return () => listener.subscription.unsubscribe();
   }, []);
 
   const total = useMemo(() => expenses.reduce((sum, row) => sum + (row.amount || 0), 0), [expenses]);
+
+  async function loadHistory() {
+    setHistoryLoading(true);
+    const { data, error } = await supabase
+      .from("expenses")
+      .select("*, receipts!inner(file_name, storage_path)")
+      .order("created_at", { ascending: false });
+    if (error) setNotice("Não foi possível carregar o histórico.");
+    else setExpenses(((data || []) as ExpenseRow[]).map((row) => mapExpense(row, row.receipts!)));
+    setHistoryLoading(false);
+  }
+
+  async function handleAuth(event: FormEvent) {
+    event.preventDefault();
+    setAuthBusy(true);
+    setNotice("");
+    if (authMode === "login") {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) setNotice(error.message === "Invalid login credentials" ? "E-mail ou senha incorretos." : error.message);
+      else if (data.user) { setUser(data.user); await loadHistory(); }
+    } else {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: window.location.origin },
+      });
+      if (error) setNotice(error.message);
+      else if (data.session && data.user) { setUser(data.user); await loadHistory(); }
+      else setNotice("Cadastro realizado. Confira seu e-mail para confirmar a conta e depois entre no sistema.");
+    }
+    setAuthBusy(false);
+  }
+
+  async function signOut() {
+    await supabase.auth.signOut();
+    setUser(null);
+    setExpenses([]);
+    setFiles([]);
+  }
 
   function addFiles(list: FileList | File[]) {
     const incoming = Array.from(list);
     const valid = incoming.filter((file) => acceptedTypes.includes(file.type) && file.size <= 20 * 1024 * 1024);
     const invalidCount = incoming.length - valid.length;
-    setFiles((current) => [...current, ...valid.map((file) => ({ id: crypto.randomUUID(), file, sourceUrl: URL.createObjectURL(file), status: "pronto" as const }))]);
+    setFiles((current) => [...current, ...valid.map((file) => ({ id: crypto.randomUUID(), file, status: "pronto" as const }))]);
     if (invalidCount) setNotice(`${invalidCount} arquivo(s) ignorado(s). Use JPG, PNG, WEBP ou PDF de até 20 MB.`);
   }
 
@@ -132,34 +145,57 @@ export default function Home() {
   }
 
   async function analyze() {
-    if (!apiKey) {
-      setShowSettings(true);
-      setNotice("Configure sua chave da OpenAI para iniciar a leitura.");
-      return;
-    }
+    if (!user) return;
     const queue = files.filter((item) => item.status === "pronto" || item.status === "erro");
     if (!queue.length) return;
     setProcessing(true);
     setNotice("");
 
     for (const item of queue) {
-      setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "lendo", error: undefined } : entry));
+      let receiptId = "";
+      let storagePath = "";
+      setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "enviando", error: undefined } : entry));
       try {
-        const payload = await readReceipt(item.file, apiKey);
-        const rows: Expense[] = payload.expenses.map((expense: Omit<Expense, "id" | "sourceFile" | "sourceUrl">) => ({
-          ...expense,
-          id: crypto.randomUUID(),
-          sourceFile: item.file.name,
-          sourceUrl: item.sourceUrl,
-        }));
-        setExpenses((current) => [...current, ...rows]);
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) throw new Error("Sua sessão expirou. Entre novamente.");
+        storagePath = `${user.id}/${crypto.randomUUID()}-${safeFileName(item.file.name)}`;
+        const { error: uploadError } = await supabase.storage.from("receipts").upload(storagePath, item.file, { contentType: item.file.type, upsert: false });
+        if (uploadError) throw new Error("Não foi possível armazenar o comprovante.");
+        const { data: receipt, error: receiptError } = await supabase.from("receipts").insert({
+          user_id: user.id,
+          file_name: item.file.name,
+          storage_path: storagePath,
+          mime_type: item.file.type,
+          size_bytes: item.file.size,
+        }).select().single();
+        if (receiptError || !receipt) throw new Error("Não foi possível registrar o comprovante.");
+        receiptId = receipt.id;
+        setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "lendo" } : entry));
+
+        const response = await fetch("/api/analyze", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ receiptId }),
+        });
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error || "A leitura falhou.");
+        const rows = (payload.expenses as ExpenseRow[]).map((row) => mapExpense(row, receipt));
+        setExpenses((current) => [...rows, ...current]);
         setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "concluido" } : entry));
       } catch (error) {
         const message = error instanceof Error ? error.message : "Erro inesperado.";
+        if (storagePath && !receiptId) await supabase.storage.from("receipts").remove([storagePath]);
         setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "erro", error: message } : entry));
       }
     }
     setProcessing(false);
+  }
+
+  async function openReceipt(row: Expense) {
+    const { data, error } = await supabase.storage.from("receipts").createSignedUrl(row.storagePath, 60);
+    if (error || !data) setNotice("Não foi possível abrir o comprovante.");
+    else window.open(data.signedUrl, "_blank", "noopener,noreferrer");
   }
 
   function updateExpense(id: string, field: keyof Expense, value: string) {
@@ -167,6 +203,31 @@ export default function Home() {
       ...row,
       [field]: field === "amount" ? (value === "" ? null : Number(value.replace(",", "."))) : value,
     } : row));
+  }
+
+  async function saveExpense(row: Expense) {
+    const { error } = await supabase.from("expenses").update({
+      supplier: row.supplier,
+      expense_date: row.date || null,
+      amount: row.amount,
+      currency: row.currency,
+      category: row.category,
+      description: row.description,
+      notes: row.notes,
+      updated_at: new Date().toISOString(),
+    }).eq("id", row.id);
+    setNotice(error ? "Não foi possível salvar a alteração." : "Alteração salva no histórico.");
+  }
+
+  async function deleteExpense(row: Expense) {
+    const sameReceipt = expenses.filter((item) => item.receiptId === row.receiptId).length;
+    const { error } = await supabase.from("expenses").delete().eq("id", row.id);
+    if (error) { setNotice("Não foi possível excluir esta despesa."); return; }
+    setExpenses((current) => current.filter((item) => item.id !== row.id));
+    if (sameReceipt === 1) {
+      await supabase.storage.from("receipts").remove([row.storagePath]);
+      await supabase.from("receipts").delete().eq("id", row.receiptId);
+    }
   }
 
   function copyTable() {
@@ -190,127 +251,83 @@ export default function Home() {
     URL.revokeObjectURL(url);
   }
 
-  function saveKey() {
-    const clean = keyDraft.trim();
-    if (!clean.startsWith("sk-")) {
-      setNotice("A chave parece incompleta. Ela deve começar com “sk-”.");
-      return;
-    }
-    sessionStorage.setItem("comprova-openai-key", clean);
-    setApiKey(clean);
-    setShowSettings(false);
-    setNotice("Chave conectada somente nesta sessão do navegador.");
-  }
+  if (authLoading) return <main className="authShell"><div className="authCard"><span className="brand"><span className="brandMark">C</span><span>comprova</span></span><p>Carregando acesso seguro…</p></div></main>;
 
-  function removeKey() {
-    sessionStorage.removeItem("comprova-openai-key");
-    setApiKey("");
-    setKeyDraft("");
-    setShowSettings(false);
-    setNotice("Chave removida deste navegador.");
-  }
+  if (!user) return (
+    <main className="authShell">
+      <section className="authIntro">
+        <div className="eyebrow">Leitura inteligente de comprovantes</div>
+        <h1>Seus reembolsos,<br /><em>organizados.</em></h1>
+        <p>Entre para processar novos comprovantes e consultar todo o seu histórico com segurança.</p>
+      </section>
+      <form className="authCard" onSubmit={handleAuth}>
+        <span className="brand"><span className="brandMark">C</span><span>comprova</span></span>
+        <h2>{authMode === "login" ? "Entrar no sistema" : "Criar minha conta"}</h2>
+        <p>{authMode === "login" ? "Use seu e-mail e senha para continuar." : "Seu histórico ficará vinculado a esta conta."}</p>
+        <label htmlFor="email">E-mail</label>
+        <input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" />
+        <label htmlFor="password">Senha</label>
+        <input id="password" type="password" value={password} onChange={(event) => setPassword(event.target.value)} required minLength={8} autoComplete={authMode === "login" ? "current-password" : "new-password"} />
+        <button className="primary" disabled={authBusy}>{authBusy ? "Aguarde…" : authMode === "login" ? "Entrar" : "Criar conta"}<span>→</span></button>
+        {notice && <div className="authNotice" role="status">{notice}</div>}
+        <button type="button" className="authSwitch" onClick={() => { setAuthMode(authMode === "login" ? "signup" : "login"); setNotice(""); }}>
+          {authMode === "login" ? "Primeiro acesso? Criar uma conta" : "Já tenho conta — entrar"}
+        </button>
+      </form>
+    </main>
+  );
 
   return (
     <main>
       <header className="topbar">
-        <a className="brand" href="#inicio" aria-label="Comprova início">
-          <span className="brandMark">C</span><span>comprova</span>
-        </a>
-        <div className="topActions"><span className="privacy"><span className="privacyDot" /> Seus arquivos não ficam armazenados</span><button className={`settingsButton ${apiKey ? "connected" : ""}`} onClick={() => setShowSettings(true)}>{apiKey ? "IA conectada" : "Configurar IA"}</button></div>
+        <a className="brand" href="#inicio" aria-label="Comprova início"><span className="brandMark">C</span><span>comprova</span></a>
+        <div className="topActions"><span className="privacy"><span className="privacyDot" /> Arquivos privados e histórico protegido</span><span className="userEmail">{user.email}</span><button className="settingsButton" onClick={signOut}>Sair</button></div>
       </header>
 
       <section className="hero" id="inicio">
         <div className="eyebrow">Leitura inteligente de comprovantes</div>
         <h1>De comprovantes<br />para uma tabela, <em>em minutos.</em></h1>
-        <p>Envie fotos, prints e PDFs de uma só vez. A IA organiza cada despesa para você revisar, copiar e seguir com seu reembolso.</p>
+        <p>Envie fotos, prints e PDFs de uma só vez. A IA organiza cada despesa e salva tudo no seu histórico.</p>
       </section>
 
       <section className="workspace" aria-label="Importação de comprovantes">
-        {!apiKey && <button className="setupBanner" onClick={() => setShowSettings(true)}><span>1</span><div><strong>Conecte a inteligência artificial</strong><small>Insira sua chave privada uma vez por sessão para liberar a leitura.</small></div><b>Configurar →</b></button>}
-        <div
-          className={`dropzone ${dragging ? "dragging" : ""}`}
-          onDragOver={(event) => { event.preventDefault(); setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={onDrop}
-          onClick={() => inputRef.current?.click()}
-          role="button"
-          tabIndex={0}
-          onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") inputRef.current?.click(); }}
-        >
+        <div className={`dropzone ${dragging ? "dragging" : ""}`} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop} onClick={() => inputRef.current?.click()} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") inputRef.current?.click(); }}>
           <input ref={inputRef} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event: ChangeEvent<HTMLInputElement>) => event.target.files && addFiles(event.target.files)} />
-          <div className="uploadIcon">↑</div>
-          <h2>Solte seus comprovantes aqui</h2>
-          <p>ou <span>escolha os arquivos</span> no seu computador</p>
-          <small>JPG, PNG, WEBP ou PDF · até 20 MB por arquivo</small>
+          <div className="uploadIcon">↑</div><h2>Solte seus comprovantes aqui</h2><p>ou <span>escolha os arquivos</span> no seu computador</p><small>JPG, PNG, WEBP ou PDF · até 20 MB por arquivo</small>
         </div>
-
-        {files.length > 0 && (
-          <div className="filePanel">
-            <div className="filePanelHeader"><strong>{files.length} arquivo(s) no lote</strong><button onClick={() => setFiles([])} disabled={processing}>Limpar lote</button></div>
-            <div className="fileList">
-              {files.map((item) => (
-                <div className="fileItem" key={item.id}>
-                  <span className={`fileType ${item.file.type === "application/pdf" ? "pdf" : "image"}`}>{item.file.type === "application/pdf" ? "PDF" : "IMG"}</span>
-                  <span className="fileName"><strong>{item.file.name}</strong><small>{(item.file.size / 1024 / 1024).toFixed(1)} MB{item.error ? ` · ${item.error}` : ""}</small></span>
-                  <span className={`status ${item.status}`}>{item.status === "lendo" ? "Lendo…" : item.status === "concluido" ? "Pronto" : item.status === "erro" ? "Tentar novamente" : "Na fila"}</span>
-                </div>
-              ))}
-            </div>
-            <button className="primary" onClick={analyze} disabled={processing}>{processing ? "Analisando o lote…" : "Ler comprovantes"}<span>→</span></button>
-          </div>
-        )}
+        {files.length > 0 && <div className="filePanel">
+          <div className="filePanelHeader"><strong>{files.length} arquivo(s) no lote</strong><button onClick={() => setFiles([])} disabled={processing}>Limpar lote</button></div>
+          <div className="fileList">{files.map((item) => <div className="fileItem" key={item.id}>
+            <span className={`fileType ${item.file.type === "application/pdf" ? "pdf" : "image"}`}>{item.file.type === "application/pdf" ? "PDF" : "IMG"}</span>
+            <span className="fileName"><strong>{item.file.name}</strong><small>{(item.file.size / 1024 / 1024).toFixed(1)} MB{item.error ? ` · ${item.error}` : ""}</small></span>
+            <span className={`status ${item.status}`}>{item.status === "enviando" ? "Enviando…" : item.status === "lendo" ? "Lendo…" : item.status === "concluido" ? "Salvo" : item.status === "erro" ? "Tentar novamente" : "Na fila"}</span>
+          </div>)}</div>
+          <button className="primary" onClick={analyze} disabled={processing}>{processing ? "Analisando o lote…" : "Ler e salvar comprovantes"}<span>→</span></button>
+        </div>}
       </section>
 
       {notice && <div className="notice" role="status">{notice}</div>}
 
-      {expenses.length > 0 && (
-        <section className="results">
-          <div className="resultsHeader">
-            <div><span className="sectionNumber">02</span><h2>Confira antes de copiar</h2><p>Todos os campos podem ser corrigidos.</p></div>
-            <div className="actions"><button onClick={copyTable}>Copiar tabela</button><button className="dark" onClick={exportCsv}>Baixar Excel (CSV)</button></div>
-          </div>
-          <div className="tableWrap">
-            <table>
-              <thead><tr><th>Arquivo</th><th>Fornecedor</th><th>Data</th><th>Valor</th><th>Categoria</th><th>Descrição</th><th>Leitura</th><th aria-label="Excluir" /></tr></thead>
-              <tbody>
-                {expenses.map((row) => (
-                  <tr key={row.id} className={row.confidence === "baixa" ? "needsReview" : ""}>
-                    <td className="source" title={row.sourceFile}><a href={row.sourceUrl} target="_blank" rel="noreferrer" aria-label={`Abrir comprovante ${row.sourceFile}`}>{row.sourceFile}<span aria-hidden="true">↗</span></a></td>
-                    <td><input value={row.supplier} onChange={(e) => updateExpense(row.id, "supplier", e.target.value)} /></td>
-                    <td><input type="date" value={row.date} onChange={(e) => updateExpense(row.id, "date", e.target.value)} /></td>
-                    <td><div className="moneyInput"><span>{row.currency === "BRL" ? "R$" : row.currency}</span><input inputMode="decimal" value={row.amount ?? ""} onChange={(e) => updateExpense(row.id, "amount", e.target.value)} /></div></td>
-                    <td><select value={row.category} onChange={(e) => updateExpense(row.id, "category", e.target.value)}>{categories.map((category) => <option key={category}>{category}</option>)}</select></td>
-                    <td><input value={row.description} onChange={(e) => updateExpense(row.id, "description", e.target.value)} /></td>
-                    <td><span className={`confidence ${row.confidence}`}>{row.confidence === "alta" ? "Alta" : row.confidence === "media" ? "Revisar" : "Baixa"}</span></td>
-                    <td><button className="delete" onClick={() => setExpenses((current) => current.filter((item) => item.id !== row.id))} aria-label={`Excluir ${row.sourceFile}`}>×</button></td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot><tr><td colSpan={3}>{expenses.length} despesa(s)</td><td>{money(total, "BRL")}</td><td colSpan={4} /></tr></tfoot>
-            </table>
-          </div>
-          <p className="hint"><span>!</span> Linhas destacadas merecem conferência. A IA pode confundir subtotal, data de emissão ou comprovantes com pouca nitidez.</p>
-        </section>
-      )}
-
-      <footer><span>Comprova</span><p>Organize. Confira. Reembolse.</p></footer>
-
-      {showSettings && (
-        <div className="modalBackdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowSettings(false); }}>
-          <section className="modal" role="dialog" aria-modal="true" aria-labelledby="settings-title">
-            <button className="modalClose" onClick={() => setShowSettings(false)} aria-label="Fechar">×</button>
-            <span className="modalEyebrow">Acesso privado</span>
-            <h2 id="settings-title">Conectar à OpenAI</h2>
-            <p>Cole sua chave abaixo. Ela fica apenas nesta aba do navegador e é removida quando a sessão termina.</p>
-            <label htmlFor="api-key">Chave da API</label>
-            <input id="api-key" type="password" value={keyDraft} onChange={(event) => setKeyDraft(event.target.value)} placeholder="sk-proj-••••••••••••" autoComplete="off" />
-            <div className="keySafety"><span>✓</span><p>A chave não é salva no aplicativo nem aparece na tabela. Ela é usada somente para processar seus comprovantes.</p></div>
-            <button className="primary modalPrimary" onClick={saveKey}>Salvar nesta sessão <span>→</span></button>
-            {apiKey && <button className="removeKey" onClick={removeKey}>Remover chave deste navegador</button>}
-            <a className="keyHelp" href="https://platform.openai.com/api-keys" target="_blank" rel="noreferrer">Ainda não tenho uma chave — abrir a OpenAI ↗</a>
-          </section>
+      <section className="results">
+        <div className="resultsHeader"><div><span className="sectionNumber">Histórico</span><h2>Seus comprovantes</h2><p>{historyLoading ? "Carregando…" : expenses.length ? "Edite um campo e clique em salvar." : "As próximas leituras aparecerão aqui."}</p></div>
+          {expenses.length > 0 && <div className="actions"><button onClick={copyTable}>Copiar tabela</button><button className="dark" onClick={exportCsv}>Baixar Excel (CSV)</button></div>}
         </div>
-      )}
+        {expenses.length > 0 ? <><div className="tableWrap"><table>
+          <thead><tr><th>Arquivo</th><th>Fornecedor</th><th>Data</th><th>Valor</th><th>Categoria</th><th>Descrição</th><th>Leitura</th><th>Ações</th></tr></thead>
+          <tbody>{expenses.map((row) => <tr key={row.id} className={row.confidence === "baixa" ? "needsReview" : ""}>
+            <td className="source" title={row.sourceFile}><button className="sourceLink" onClick={() => openReceipt(row)}>{row.sourceFile}<span aria-hidden="true">↗</span></button></td>
+            <td><input value={row.supplier} onChange={(e) => updateExpense(row.id, "supplier", e.target.value)} /></td>
+            <td><input type="date" value={row.date} onChange={(e) => updateExpense(row.id, "date", e.target.value)} /></td>
+            <td><div className="moneyInput"><span>{row.currency === "BRL" ? "R$" : row.currency}</span><input inputMode="decimal" value={row.amount ?? ""} onChange={(e) => updateExpense(row.id, "amount", e.target.value)} /></div></td>
+            <td><select value={row.category} onChange={(e) => updateExpense(row.id, "category", e.target.value)}>{categories.map((category) => <option key={category}>{category}</option>)}</select></td>
+            <td><input value={row.description} onChange={(e) => updateExpense(row.id, "description", e.target.value)} /></td>
+            <td><span className={`confidence ${row.confidence}`}>{row.confidence === "alta" ? "Alta" : row.confidence === "media" ? "Revisar" : "Baixa"}</span></td>
+            <td><div className="rowActions"><button onClick={() => saveExpense(row)}>Salvar</button><button className="delete" onClick={() => deleteExpense(row)} aria-label={`Excluir ${row.sourceFile}`}>×</button></div></td>
+          </tr>)}</tbody>
+          <tfoot><tr><td colSpan={3}>{expenses.length} despesa(s)</td><td>{money(total, "BRL")}</td><td colSpan={4} /></tr></tfoot>
+        </table></div><p className="hint"><span>!</span> Linhas destacadas merecem conferência. Clique no nome do arquivo para abrir o comprovante original.</p></> : <div className="emptyHistory"><span>⌁</span><h3>Nenhum comprovante salvo</h3><p>Envie o primeiro lote acima para iniciar seu histórico.</p></div>}
+      </section>
+      <footer><span>Comprova</span><p>Organize. Confira. Reembolse.</p></footer>
     </main>
   );
 }

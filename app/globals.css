@@ -12,6 +12,7 @@ button { cursor:pointer; }
 .privacy { font-size:12px; font-weight:700; color:var(--muted); display:flex; align-items:center; gap:8px; }
 .privacyDot { width:7px; height:7px; border-radius:50%; background:var(--green); box-shadow:0 0 0 4px var(--mint); }
 .topActions { display:flex; align-items:center; gap:18px; }
+.userEmail { max-width:190px; overflow:hidden; text-overflow:ellipsis; color:var(--muted); font-size:11px; }
 .settingsButton { border:1px solid var(--ink); border-radius:8px; padding:8px 12px; background:transparent; color:var(--ink); font-size:11px; font-weight:800; }
 .settingsButton.connected { border-color:#95b8aa; background:var(--mint); color:var(--green); }
 .hero { padding:76px 6vw 52px; max-width:1040px; margin:auto; text-align:center; }
@@ -67,6 +68,8 @@ tr.needsReview td { background:#fff9e8; }
 td.source { max-width:135px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; color:var(--muted); padding-left:13px; }
 td.source a { display:flex; align-items:center; gap:5px; color:var(--green); font-weight:800; text-decoration:underline; text-underline-offset:3px; overflow:hidden; }
 td.source a span { flex:0 0 auto; font-size:10px; }
+.sourceLink { max-width:100%; display:flex; align-items:center; gap:5px; border:0; padding:0; background:transparent; color:var(--green); font-size:11px; font-weight:800; text-decoration:underline; text-underline-offset:3px; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }
+.sourceLink span { flex:0 0 auto; font-size:10px; }
 td input,td select { width:100%; min-width:110px; border:1px solid transparent; background:transparent; border-radius:6px; padding:8px 7px; font-size:12px; color:var(--ink); }
 td input:focus,td select:focus { outline:2px solid var(--lime); background:white; border-color:var(--green); }
 .moneyInput { display:flex; align-items:center; min-width:115px; }
@@ -76,12 +79,30 @@ td input:focus,td select:focus { outline:2px solid var(--lime); background:white
 .confidence.media { background:#fff1c9; color:#8d6500; }
 .confidence.baixa { background:#f7e1dc; color:#9a4432; }
 .delete { border:0; background:transparent; font-size:20px; color:#9aa39f; }
+.rowActions { display:flex; align-items:center; gap:5px; }
+.rowActions>button:first-child { border:1px solid #a9beb5; border-radius:6px; background:white; color:var(--green); padding:6px 8px; font-size:10px; font-weight:800; }
 tfoot td { font-weight:800; background:#f7f8f4; border:0; font-size:12px; }
 .hint { max-width:1400px; margin:15px auto 0; font-size:11px; color:var(--muted); display:flex; align-items:center; gap:8px; }
 .hint span { width:18px; height:18px; border-radius:50%; display:grid; place-items:center; background:#fff1c9; color:#8d6500; font-weight:900; }
 footer { padding:34px 6vw; display:flex; justify-content:space-between; color:var(--muted); font-size:12px; }
 footer span { color:var(--ink); font-weight:900; }
 footer p { margin:0; }
+.emptyHistory { max-width:900px; margin:auto; padding:60px 20px; border:1px dashed #b8c3be; border-radius:16px; text-align:center; color:var(--muted); }
+.emptyHistory>span { display:grid; place-items:center; width:48px; height:48px; margin:auto; border-radius:50%; background:var(--mint); color:var(--green); font-size:25px; }
+.emptyHistory h3 { margin:15px 0 6px; color:var(--ink); }
+.emptyHistory p { margin:0; font-size:13px; }
+.authShell { min-height:100vh; display:grid; grid-template-columns:1.15fr .85fr; align-items:center; gap:7vw; padding:7vw; background:linear-gradient(135deg,#f4f1e9 0%,#fcfbf7 55%,#e7f3ed 100%); }
+.authIntro h1 { margin:22px 0; font-size:clamp(50px,7vw,88px); line-height:.96; letter-spacing:-5px; }
+.authIntro h1 em { font-family:var(--font-serif); font-weight:500; color:var(--green); }
+.authIntro p { max-width:600px; color:var(--muted); font-size:17px; line-height:1.7; }
+.authCard { width:min(430px,100%); margin:auto; padding:38px; border:1px solid var(--line); border-radius:20px; background:rgba(255,255,255,.9); box-shadow:0 30px 80px rgba(38,78,64,.12); }
+.authCard h2 { margin:34px 0 7px; font-size:29px; letter-spacing:-1px; }
+.authCard>p { margin:0 0 26px; color:var(--muted); font-size:13px; line-height:1.5; }
+.authCard label { display:block; margin:14px 0 6px; color:var(--ink); font-size:10px; font-weight:900; letter-spacing:.9px; text-transform:uppercase; }
+.authCard>input { width:100%; border:1px solid #bfc9c4; border-radius:9px; padding:13px; background:white; color:var(--ink); }
+.authCard>input:focus { outline:2px solid var(--lime); border-color:var(--green); }
+.authNotice { margin-top:15px; padding:11px 13px; border-radius:8px; background:#eef7f2; color:var(--green); font-size:12px; line-height:1.45; }
+.authSwitch { width:100%; margin-top:18px; border:0; background:transparent; color:var(--green); font-size:11px; font-weight:800; text-decoration:underline; }
 .modalBackdrop { position:fixed; inset:0; z-index:50; display:grid; place-items:center; padding:20px; background:rgba(13,30,24,.58); backdrop-filter:blur(5px); }
 .modal { position:relative; width:min(470px,100%); border-radius:20px; background:var(--paper); padding:38px; box-shadow:0 30px 90px rgba(0,0,0,.28); }
 .modalClose { position:absolute; right:18px; top:15px; border:0; background:transparent; color:var(--muted); font-size:25px; }
@@ -102,6 +123,7 @@ footer p { margin:0; }
   .privacy { font-size:0; }
   .privacy:after { content:"Privado"; font-size:11px; }
   .topActions { gap:10px; }
+  .userEmail { display:none; }
   .settingsButton { padding:7px 9px; }
   .hero { padding:55px 5vw 38px; }
   .hero h1 { font-size:48px; letter-spacing:-3px; }
@@ -117,4 +139,7 @@ footer p { margin:0; }
   .status { max-width:80px; text-align:right; }
   .setupBanner b { display:none; }
   .modal { padding:33px 23px; }
+  .authShell { grid-template-columns:1fr; padding:35px 5vw; }
+  .authIntro { display:none; }
+  .authCard { padding:30px 23px; }
 }

@@ -7,7 +7,7 @@ const playfair = Playfair_Display({ variable: "--font-serif", subsets: ["latin"]
 
 export const metadata: Metadata = {
   title: "Comprova — Leitura inteligente de reembolsos",
-  description: "Transforme fotos, prints e PDFs de comprovantes em uma tabela editável.",
+  description: "Transforme fotos, prints e PDFs de comprovantes em uma tabela editável e mantenha seu histórico protegido.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
