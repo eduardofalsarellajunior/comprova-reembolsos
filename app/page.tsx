@@ -5,6 +5,7 @@ import { ChangeEvent, DragEvent, useEffect, useMemo, useRef, useState } from "re
 type Expense = {
   id: string;
   sourceFile: string;
+  sourceUrl: string;
   supplier: string;
   date: string;
   amount: number | null;
@@ -15,7 +16,7 @@ type Expense = {
   notes: string;
 };
 
-type PendingFile = { id: string; file: File; status: "pronto" | "lendo" | "concluido" | "erro"; error?: string };
+type PendingFile = { id: string; file: File; sourceUrl: string; status: "pronto" | "lendo" | "concluido" | "erro"; error?: string };
 
 const acceptedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const categories = ["Alimentação", "Hospedagem", "Transporte", "Combustível", "Pedágio", "Estacionamento", "Material", "Outros"];
@@ -120,7 +121,7 @@ export default function Home() {
     const incoming = Array.from(list);
     const valid = incoming.filter((file) => acceptedTypes.includes(file.type) && file.size <= 20 * 1024 * 1024);
     const invalidCount = incoming.length - valid.length;
-    setFiles((current) => [...current, ...valid.map((file) => ({ id: crypto.randomUUID(), file, status: "pronto" as const }))]);
+    setFiles((current) => [...current, ...valid.map((file) => ({ id: crypto.randomUUID(), file, sourceUrl: URL.createObjectURL(file), status: "pronto" as const }))]);
     if (invalidCount) setNotice(`${invalidCount} arquivo(s) ignorado(s). Use JPG, PNG, WEBP ou PDF de até 20 MB.`);
   }
 
@@ -145,10 +146,11 @@ export default function Home() {
       setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "lendo", error: undefined } : entry));
       try {
         const payload = await readReceipt(item.file, apiKey);
-        const rows: Expense[] = payload.expenses.map((expense: Omit<Expense, "id" | "sourceFile">) => ({
+        const rows: Expense[] = payload.expenses.map((expense: Omit<Expense, "id" | "sourceFile" | "sourceUrl">) => ({
           ...expense,
           id: crypto.randomUUID(),
           sourceFile: item.file.name,
+          sourceUrl: item.sourceUrl,
         }));
         setExpenses((current) => [...current, ...rows]);
         setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "concluido" } : entry));
@@ -273,7 +275,7 @@ export default function Home() {
               <tbody>
                 {expenses.map((row) => (
                   <tr key={row.id} className={row.confidence === "baixa" ? "needsReview" : ""}>
-                    <td className="source" title={row.sourceFile}>{row.sourceFile}</td>
+                    <td className="source" title={row.sourceFile}><a href={row.sourceUrl} target="_blank" rel="noreferrer" aria-label={`Abrir comprovante ${row.sourceFile}`}>{row.sourceFile}<span aria-hidden="true">↗</span></a></td>
                     <td><input value={row.supplier} onChange={(e) => updateExpense(row.id, "supplier", e.target.value)} /></td>
                     <td><input type="date" value={row.date} onChange={(e) => updateExpense(row.id, "date", e.target.value)} /></td>
                     <td><div className="moneyInput"><span>{row.currency === "BRL" ? "R$" : row.currency}</span><input inputMode="decimal" value={row.amount ?? ""} onChange={(e) => updateExpense(row.id, "amount", e.target.value)} /></div></td>
