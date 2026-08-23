@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       value: Number(expense.amount),
       reimbursable: true,
     });
-    const result = await vexpensesFetch("/expenses", { method: "POST", body: JSON.stringify({ user_id: member.id, external_id: expense.id, expense_type_id: expenseTypeId, ...(report.paymentMethodId ? { payment_method_id: report.paymentMethodId } : {}), paying_company_id: report.payingCompanyId || member.companyId, receipt_url: signed.signedUrl, reicept_url: signed.signedUrl, date: expense.expense_date, value: Number(expense.amount), report_id: reportId, title, validate: "S", observation: String(expense.notes || ""), reimbursable: true, original_currency_iso: expense.currency || "BRL" }) });
+    const result = await vexpensesFetch("/expenses", { method: "POST", body: JSON.stringify({ user_id: member.id, external_id: expense.id, expense_type_id: expenseTypeId, ...(report.paymentMethodId ? { payment_method_id: report.paymentMethodId } : {}), paying_company_id: report.payingCompanyId || member.companyId, receipt_url: signed.signedUrl, reicept_url: signed.signedUrl, date: expense.expense_date, value: Number(expense.amount), report_id: reportId, title, validate: "", observation: String(expense.notes || ""), reimbursable: true, original_currency_iso: expense.currency || "BRL" }) });
     const created = dataItems(result)[0] || asRecord(result);
     const createdId = Number(created?.id);
     const sentAt = new Date().toISOString();
