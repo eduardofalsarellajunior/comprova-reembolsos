@@ -1,9 +1,10 @@
 "use client";
 
 import { ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
-import type { User } from "@supabase/supabase-js";
 import { categories, type Expense } from "@/lib/expenses";
 import { createClient } from "@/lib/supabase/client";
+
+type User = { id: string; email?: string };
 
 type PendingFile = {
   id: string;
@@ -41,10 +42,21 @@ type ExpenseRow = {
   confidence: "alta" | "media" | "baixa";
   notes: string;
   created_at: string;
+  vexpenses_status?: "not_sent" | "sending" | "sent" | "error";
+  vexpenses_expense_id?: number | null;
+  vexpenses_report_id?: number | null;
+  vexpenses_error?: string | null;
+  vexpenses_sent_at?: string | null;
   receipts?: ReceiptSummary;
 };
 
 type ReceiptSummary = { file_name: string; storage_path: string };
+type VexpensesContext = {
+  configured: boolean;
+  member: { id: number; companyId: number; name: string; email: string };
+  expenseTypes: { id: number; description: string; active: boolean }[];
+  reports: { id: number; description: string; status: string; userId: number }[];
+};
 
 function mapExpense(row: ExpenseRow, receipt: ReceiptSummary): Expense {
   return {
@@ -61,6 +73,11 @@ function mapExpense(row: ExpenseRow, receipt: ReceiptSummary): Expense {
     confidence: row.confidence || "baixa",
     notes: row.notes || "",
     createdAt: row.created_at,
+    vexpensesStatus: row.vexpenses_status || "not_sent",
+    vexpensesExpenseId: row.vexpenses_expense_id ?? null,
+    vexpensesReportId: row.vexpenses_report_id ?? null,
+    vexpensesError: row.vexpenses_error || "",
+    vexpensesSentAt: row.vexpenses_sent_at || null,
   };
 }
 
@@ -78,15 +95,24 @@ export default function Home() {
   const [processing, setProcessing] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [notice, setNotice] = useState("");
+  const [vexpensesContext, setVexpensesContext] = useState<VexpensesContext | null>(null);
+  const [vexpensesLoading, setVexpensesLoading] = useState(false);
+  const [vexpensesMessage, setVexpensesMessage] = useState("");
+  const [sendExpense, setSendExpense] = useState<Expense | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState("");
+  const [selectedExpenseTypeId, setSelectedExpenseTypeId] = useState("");
+  const [sendingToVexpenses, setSendingToVexpenses] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user);
       setAuthLoading(false);
-      if (data.user) loadHistory();
+      if (data.user) { loadHistory(); loadVexpensesContext(); }
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null));
     return () => listener.subscription.unsubscribe();
+  // A carga inicial deve acontecer uma única vez; as funções usam o cliente singleton.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const total = useMemo(() => expenses.reduce((sum, row) => sum + (row.amount || 0), 0), [expenses]);
@@ -109,7 +135,7 @@ export default function Home() {
     if (authMode === "login") {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setNotice(error.message === "Invalid login credentials" ? "E-mail ou senha incorretos." : error.message);
-      else if (data.user) { setUser(data.user); await loadHistory(); }
+      else if (data.user) { setUser(data.user); await Promise.all([loadHistory(), loadVexpensesContext()]); }
     } else {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -117,7 +143,7 @@ export default function Home() {
         options: { emailRedirectTo: window.location.origin },
       });
       if (error) setNotice(error.message);
-      else if (data.session && data.user) { setUser(data.user); await loadHistory(); }
+      else if (data.session && data.user) { setUser(data.user); await Promise.all([loadHistory(), loadVexpensesContext()]); }
       else setNotice("Cadastro realizado. Confira seu e-mail para confirmar a conta e depois entre no sistema.");
     }
     setAuthBusy(false);
@@ -128,6 +154,55 @@ export default function Home() {
     setUser(null);
     setExpenses([]);
     setFiles([]);
+    setVexpensesContext(null);
+    setVexpensesMessage("");
+  }
+
+  async function authenticatedFetch(url: string, init?: RequestInit) {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) throw new Error("Sua sessão expirou. Entre novamente.");
+    return fetch(url, { ...init, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, ...init?.headers } });
+  }
+
+  async function loadVexpensesContext() {
+    setVexpensesLoading(true);
+    try {
+      const response = await authenticatedFetch("/api/vexpenses/context");
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Não foi possível conectar à VExpenses.");
+      setVexpensesContext(payload);
+      setVexpensesMessage(`Conectado como ${payload.member.name || payload.member.email}.`);
+    } catch (error) {
+      setVexpensesContext(null);
+      setVexpensesMessage(error instanceof Error ? error.message : "Não foi possível conectar à VExpenses.");
+    } finally { setVexpensesLoading(false); }
+  }
+
+  function openSendModal(row: Expense) {
+    if (!vexpensesContext) { setNotice(vexpensesMessage || "Conecte a VExpenses antes de enviar."); return; }
+    setSendExpense(row);
+    setSelectedReportId(vexpensesContext.reports[0]?.id?.toString() || "");
+    const matchingType = vexpensesContext.expenseTypes.find((type) => type.description.toLocaleLowerCase("pt-BR").includes(row.category.toLocaleLowerCase("pt-BR")));
+    setSelectedExpenseTypeId((matchingType?.id || vexpensesContext.expenseTypes[0]?.id || "").toString());
+  }
+
+  async function confirmSendToVexpenses() {
+    if (!sendExpense || !selectedReportId || !selectedExpenseTypeId) return;
+    setSendingToVexpenses(true);
+    try {
+      await saveExpense(sendExpense);
+      const response = await authenticatedFetch("/api/vexpenses/send", { method: "POST", body: JSON.stringify({ expenseId: sendExpense.id, reportId: Number(selectedReportId), expenseTypeId: Number(selectedExpenseTypeId) }) });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "O envio não foi concluído.");
+      setExpenses((current) => current.map((row) => row.id === sendExpense.id ? { ...row, vexpensesStatus: "sent", vexpensesExpenseId: payload.expenseId, vexpensesReportId: payload.reportId, vexpensesSentAt: payload.sentAt, vexpensesError: "" } : row));
+      setSendExpense(null);
+      setNotice("Despesa enviada com sucesso para o relatório escolhido na VExpenses.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "O envio não foi concluído.";
+      setExpenses((current) => current.map((row) => row.id === sendExpense.id ? { ...row, vexpensesStatus: "error", vexpensesError: message } : row));
+      setNotice(message);
+    } finally { setSendingToVexpenses(false); }
   }
 
   function addFiles(list: FileList | File[]) {
@@ -291,6 +366,11 @@ export default function Home() {
       </section>
 
       <section className="workspace" aria-label="Importação de comprovantes">
+        <div className={`integrationBanner ${vexpensesContext ? "connected" : ""}`}>
+          <span>{vexpensesContext ? "✓" : "V"}</span>
+          <div><strong>{vexpensesContext ? "VExpenses conectada" : "Integração com a VExpenses"}</strong><small>{vexpensesLoading ? "Consultando sua conta…" : vexpensesMessage || "Carregue seus relatórios e categorias para enviar uma despesa por vez."}</small></div>
+          <button onClick={loadVexpensesContext} disabled={vexpensesLoading}>{vexpensesLoading ? "Aguarde…" : vexpensesContext ? "Atualizar" : "Conectar"}</button>
+        </div>
         <div className={`dropzone ${dragging ? "dragging" : ""}`} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop} onClick={() => inputRef.current?.click()} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") inputRef.current?.click(); }}>
           <input ref={inputRef} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event: ChangeEvent<HTMLInputElement>) => event.target.files && addFiles(event.target.files)} />
           <div className="uploadIcon">↑</div><h2>Solte seus comprovantes aqui</h2><p>ou <span>escolha os arquivos</span> no seu computador</p><small>JPG, PNG, WEBP ou PDF · até 20 MB por arquivo</small>
@@ -313,7 +393,7 @@ export default function Home() {
           {expenses.length > 0 && <div className="actions"><button onClick={copyTable}>Copiar tabela</button><button className="dark" onClick={exportCsv}>Baixar Excel (CSV)</button></div>}
         </div>
         {expenses.length > 0 ? <><div className="tableWrap"><table>
-          <thead><tr><th>Arquivo</th><th>Fornecedor</th><th>Data</th><th>Valor</th><th>Categoria</th><th>Descrição</th><th>Leitura</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Arquivo</th><th>Fornecedor</th><th>Data</th><th>Valor</th><th>Categoria</th><th>Descrição</th><th>Leitura</th><th>VExpenses</th><th>Ações</th></tr></thead>
           <tbody>{expenses.map((row) => <tr key={row.id} className={row.confidence === "baixa" ? "needsReview" : ""}>
             <td className="source" title={row.sourceFile}><button className="sourceLink" onClick={() => openReceipt(row)}>{row.sourceFile}<span aria-hidden="true">↗</span></button></td>
             <td><input value={row.supplier} onChange={(e) => updateExpense(row.id, "supplier", e.target.value)} /></td>
@@ -322,11 +402,23 @@ export default function Home() {
             <td><select value={row.category} onChange={(e) => updateExpense(row.id, "category", e.target.value)}>{categories.map((category) => <option key={category}>{category}</option>)}</select></td>
             <td><input value={row.description} onChange={(e) => updateExpense(row.id, "description", e.target.value)} /></td>
             <td><span className={`confidence ${row.confidence}`}>{row.confidence === "alta" ? "Alta" : row.confidence === "media" ? "Revisar" : "Baixa"}</span></td>
+            <td><button className={`sendButton ${row.vexpensesStatus}`} onClick={() => openSendModal(row)} disabled={row.vexpensesStatus === "sent"}>{row.vexpensesStatus === "sent" ? "Enviado ✓" : row.vexpensesStatus === "error" ? "Tentar envio" : "Enviar"}</button>{row.vexpensesError && <span className="sendError" title={row.vexpensesError}>Erro no último envio</span>}</td>
             <td><div className="rowActions"><button onClick={() => saveExpense(row)}>Salvar</button><button className="delete" onClick={() => deleteExpense(row)} aria-label={`Excluir ${row.sourceFile}`}>×</button></div></td>
           </tr>)}</tbody>
-          <tfoot><tr><td colSpan={3}>{expenses.length} despesa(s)</td><td>{money(total, "BRL")}</td><td colSpan={4} /></tr></tfoot>
+          <tfoot><tr><td colSpan={3}>{expenses.length} despesa(s)</td><td>{money(total, "BRL")}</td><td colSpan={5} /></tr></tfoot>
         </table></div><p className="hint"><span>!</span> Linhas destacadas merecem conferência. Clique no nome do arquivo para abrir o comprovante original.</p></> : <div className="emptyHistory"><span>⌁</span><h3>Nenhum comprovante salvo</h3><p>Envie o primeiro lote acima para iniciar seu histórico.</p></div>}
       </section>
+      {sendExpense && vexpensesContext && <div className="modalBackdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !sendingToVexpenses) setSendExpense(null); }}>
+        <section className="modal" role="dialog" aria-modal="true" aria-labelledby="send-title">
+          <button className="modalClose" onClick={() => setSendExpense(null)} disabled={sendingToVexpenses} aria-label="Fechar">×</button>
+          <span className="modalEyebrow">Envio real para a VExpenses</span><h2 id="send-title">Confirmar 1 despesa</h2>
+          <p><strong>{sendExpense.sourceFile}</strong><br />{sendExpense.supplier || "Fornecedor não identificado"} · {money(sendExpense.amount, sendExpense.currency)}</p>
+          <label htmlFor="vexpenses-report">Relatório</label><select id="vexpenses-report" value={selectedReportId} onChange={(event) => setSelectedReportId(event.target.value)}>{vexpensesContext.reports.length ? vexpensesContext.reports.map((report) => <option key={report.id} value={report.id}>{report.description || `Relatório ${report.id}`} · {report.status}</option>) : <option value="">Nenhum relatório aberto</option>}</select>
+          <label htmlFor="vexpenses-type">Categoria na VExpenses</label><select id="vexpenses-type" value={selectedExpenseTypeId} onChange={(event) => setSelectedExpenseTypeId(event.target.value)}>{vexpensesContext.expenseTypes.map((type) => <option key={type.id} value={type.id}>{type.description}</option>)}</select>
+          <div className="keySafety"><span>!</span><p>Este botão cria uma despesa real no relatório selecionado. Nesta primeira versão, o envio é sempre individual e exige sua confirmação.</p></div>
+          <button className="primary modalPrimary" onClick={confirmSendToVexpenses} disabled={sendingToVexpenses || !selectedReportId || !selectedExpenseTypeId}>{sendingToVexpenses ? "Enviando…" : "Enviar esta despesa agora"}<span>→</span></button>
+        </section>
+      </div>}
       <footer><span>Comprova</span><p>Organize. Confira. Reembolse.</p></footer>
     </main>
   );

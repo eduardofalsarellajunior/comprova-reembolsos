@@ -1,15 +1,10 @@
 export const categories = [
-  "Alimentação",
-  "Hospedagem",
-  "Transporte",
-  "Combustível",
-  "Pedágio",
-  "Estacionamento",
-  "Material",
-  "Outros",
+  "Alimentação", "Hospedagem", "Transporte", "Combustível", "Pedágio",
+  "Estacionamento", "Material", "Outros",
 ] as const;
 
 export type Confidence = "alta" | "media" | "baixa";
+export type VexpensesStatus = "not_sent" | "sending" | "sent" | "error";
 
 export type Expense = {
   id: string;
@@ -25,6 +20,11 @@ export type Expense = {
   confidence: Confidence;
   notes: string;
   createdAt: string;
+  vexpensesStatus: VexpensesStatus;
+  vexpensesExpenseId: number | null;
+  vexpensesReportId: number | null;
+  vexpensesError: string;
+  vexpensesSentAt: string | null;
 };
 
 export const expenseSchema = {
