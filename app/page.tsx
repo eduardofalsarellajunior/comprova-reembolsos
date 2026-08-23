@@ -402,7 +402,7 @@ export default function Home() {
             <td><select value={row.category} onChange={(e) => updateExpense(row.id, "category", e.target.value)}>{categories.map((category) => <option key={category}>{category}</option>)}</select></td>
             <td><input value={row.description} onChange={(e) => updateExpense(row.id, "description", e.target.value)} /></td>
             <td><span className={`confidence ${row.confidence}`}>{row.confidence === "alta" ? "Alta" : row.confidence === "media" ? "Revisar" : "Baixa"}</span></td>
-            <td><button className={`sendButton ${row.vexpensesStatus}`} onClick={() => openSendModal(row)} disabled={row.vexpensesStatus === "sent"}>{row.vexpensesStatus === "sent" ? "Enviado ✓" : row.vexpensesStatus === "error" ? "Tentar envio" : "Enviar"}</button>{row.vexpensesError && <span className="sendError" title={row.vexpensesError}>Erro no último envio</span>}</td>
+            <td><button className={`sendButton ${row.vexpensesStatus}`} onClick={() => openSendModal(row)} disabled={row.vexpensesStatus === "sent"}>{row.vexpensesStatus === "sent" ? "Enviado ✓" : row.vexpensesStatus === "error" ? "Tentar envio" : "Enviar"}</button>{row.vexpensesError && <span className="sendError" title={row.vexpensesError}>{row.vexpensesError}</span>}</td>
             <td><div className="rowActions"><button onClick={() => saveExpense(row)}>Salvar</button><button className="delete" onClick={() => deleteExpense(row)} aria-label={`Excluir ${row.sourceFile}`}>×</button></div></td>
           </tr>)}</tbody>
           <tfoot><tr><td colSpan={3}>{expenses.length} despesa(s)</td><td>{money(total, "BRL")}</td><td colSpan={5} /></tr></tfoot>

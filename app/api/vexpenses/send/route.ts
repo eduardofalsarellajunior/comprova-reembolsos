@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     const { data: signed, error: signedError } = await supabase.storage.from("receipts").createSignedUrl(storagePath, 86400);
     if (signedError || !signed?.signedUrl) throw new VexpensesApiError("Não foi possível preparar o comprovante para envio.");
     const title = String(expense.description || expense.supplier || expense.category || "Despesa").slice(0, 120);
-    const result = await vexpensesFetch("/expenses", { method: "POST", body: JSON.stringify({ user_id: member.id, external_id: expense.id, expense_type_id: expenseTypeId, paying_company_id: member.companyId, receipt_url: signed.signedUrl, date: expense.expense_date, value: Number(expense.amount), report_id: reportId, title, observation: String(expense.notes || ""), reimbursable: true, original_currency_iso: expense.currency || "BRL" }) });
+    const result = await vexpensesFetch("/expenses", { method: "POST", body: JSON.stringify({ user_id: member.id, external_id: expense.id, expense_type_id: expenseTypeId, paying_company_id: member.companyId, receipt_url: signed.signedUrl, date: expense.expense_date, value: Number(expense.amount), report_id: reportId, title, validate: "", observation: String(expense.notes || ""), reimbursable: true, original_currency_iso: expense.currency || "BRL" }) });
     const created = dataItems(result)[0] || asRecord(result);
     const createdId = Number(created?.id);
     const sentAt = new Date().toISOString();
