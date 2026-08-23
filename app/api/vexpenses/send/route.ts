@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHmac } from "node:crypto";
 import { createServerSupabase, getBearerToken } from "@/lib/server-auth";
 import { asRecord, dataItems, getExpenseTypes, getMemberByEmail, getReport, getReports, vexpensesFetch, VexpensesApiError } from "@/lib/vexpenses";
 
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
   const expenseTypeId = Number(body?.expenseTypeId);
   if (!body?.expenseId || !reportId || !expenseTypeId) return NextResponse.json({ error: "Despesa, relatório e categoria são obrigatórios." }, { status: 400 });
 
-  const { data: expense, error: expenseError } = await supabase.from("expenses").select("*, receipts!inner(storage_path)").eq("id", body.expenseId).eq("user_id", authData.user.id).single();
+  const { data: expense, error: expenseError } = await supabase.from("expenses").select("*, receipts!inner(storage_path, file_name, mime_type)").eq("id", body.expenseId).eq("user_id", authData.user.id).single();
   if (expenseError || !expense) return NextResponse.json({ error: "Despesa não encontrada." }, { status: 404 });
   if (expense.vexpenses_status === "sent") return NextResponse.json({ error: "Esta despesa já foi enviada para a VExpenses." }, { status: 409 });
   if (!expense.expense_date || expense.amount === null || Number(expense.amount) <= 0) return NextResponse.json({ error: "Confira a data e o valor antes de enviar." }, { status: 400 });
@@ -35,8 +36,27 @@ export async function POST(request: Request) {
     const storagePath = typeof receipt?.storage_path === "string" ? receipt.storage_path : "";
     const { data: signed, error: signedError } = await supabase.storage.from("receipts").createSignedUrl(storagePath, 86400);
     if (signedError || !signed?.signedUrl) throw new VexpensesApiError("Não foi possível preparar o comprovante para envio.");
+    const receiptName = String(receipt?.file_name || storagePath.split("/").pop() || "comprovante").replace(/[^a-zA-Z0-9._-]/g, "-");
+    const receiptType = String(receipt?.mime_type || "application/octet-stream");
+    const receiptExpires = Math.floor(Date.now() / 1000) + 86400;
+    const receiptSignature = createHmac("sha256", process.env.VEXPENSES_API_TOKEN || "").update(`${signed.signedUrl}:${receiptExpires}:${receiptName}:${receiptType}`).digest("hex");
+    const receiptProxyUrl = new URL(`/api/vexpenses/receipt/${encodeURIComponent(receiptName)}`, request.url);
+    receiptProxyUrl.searchParams.set("source", signed.signedUrl);
+    receiptProxyUrl.searchParams.set("expires", String(receiptExpires));
+    receiptProxyUrl.searchParams.set("type", receiptType);
+    receiptProxyUrl.searchParams.set("signature", receiptSignature);
     const title = String(expense.description || expense.supplier || expense.category || "Despesa").slice(0, 120);
-    const result = await vexpensesFetch("/expenses", { method: "POST", body: JSON.stringify({ user_id: member.id, external_id: expense.id, expense_type_id: expenseTypeId, ...(report.paymentMethodId ? { payment_method_id: report.paymentMethodId } : {}), paying_company_id: report.payingCompanyId || member.companyId, receipt_url: signed.signedUrl, date: expense.expense_date, value: Number(expense.amount), report_id: reportId, title, validate: "", observation: String(expense.notes || ""), reimbursable: true, original_currency_iso: expense.currency || "BRL" }) });
+    console.info("[vexpenses/send] submitting expense", {
+      userId: member.id,
+      reportId,
+      expenseTypeId,
+      paymentMethodId: report.paymentMethodId || null,
+      payingCompanyId: report.payingCompanyId || member.companyId,
+      date: expense.expense_date,
+      value: Number(expense.amount),
+      reimbursable: true,
+    });
+    const result = await vexpensesFetch("/expenses", { method: "POST", body: JSON.stringify({ user_id: member.id, external_id: expense.id, expense_type_id: expenseTypeId, ...(report.paymentMethodId ? { payment_method_id: report.paymentMethodId } : {}), paying_company_id: report.payingCompanyId || member.companyId, receipt_url: receiptProxyUrl.toString(), reicept_url: receiptProxyUrl.toString(), date: expense.expense_date, value: Number(expense.amount), report_id: reportId, title, validate: "S", observation: String(expense.notes || ""), reimbursable: true, original_currency_iso: expense.currency || "BRL" }) });
     const created = dataItems(result)[0] || asRecord(result);
     const createdId = Number(created?.id);
     const sentAt = new Date().toISOString();

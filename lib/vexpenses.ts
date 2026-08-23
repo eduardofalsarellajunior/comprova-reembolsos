@@ -31,6 +31,7 @@ export async function vexpensesFetch(path: string, init?: RequestInit) {
   let payload: unknown = null;
   try { payload = raw ? JSON.parse(raw) : null; } catch { payload = raw; }
   if (!response.ok) {
+    console.error("[vexpenses] request failed", JSON.stringify({ path, status: response.status, payload }));
     const record = asRecord(payload);
     const message = typeof record?.message === "string" ? record.message : `A VExpenses recusou a solicitação (${response.status}).`;
     throw new VexpensesApiError(message, response.status >= 500 ? 502 : response.status);
