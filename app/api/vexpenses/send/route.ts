@@ -51,11 +51,19 @@ export async function POST(request: Request) {
       value: Number(expense.amount),
       reimbursable: true,
     });
-    const result = await vexpensesFetch("/expenses", { method: "POST", body: JSON.stringify({ user_id: member.id, external_id: expense.id, expense_type_id: expenseTypeId, ...(report.paymentMethodId ? { payment_method_id: report.paymentMethodId } : {}), paying_company_id: report.payingCompanyId || member.companyId, receipt_url: receiptProxyUrl.toString(), reicept_url: receiptProxyUrl.toString(), date: expense.expense_date, value: Number(expense.amount), report_id: reportId, title, validate: "", observation: String(expense.notes || ""), reimbursable: true, original_currency_iso: expense.currency || "BRL" }) });
-    const created = dataItems(result)[0] || asRecord(result);
+    const basePayload = { user_id: member.id, external_id: expense.id, expense_type_id: expenseTypeId, ...(report.paymentMethodId ? { payment_method_id: report.paymentMethodId } : {}), paying_company_id: report.payingCompanyId || member.companyId, receipt_url: receiptProxyUrl.toString(), reicept_url: receiptProxyUrl.toString(), date: expense.expense_date, value: Number(expense.amount), title, validate: "", observation: String(expense.notes || ""), reimbursable: true, original_currency_iso: expense.currency || "BRL" };
+    const createdResult = await vexpensesFetch("/expenses", { method: "POST", body: JSON.stringify(basePayload) });
+    const created = dataItems(createdResult)[0] || asRecord(createdResult);
     const createdId = Number(created?.id);
+    if (!Number.isFinite(createdId) || createdId <= 0) throw new VexpensesApiError("A VExpenses criou a despesa, mas não informou o ID.");
+    try {
+      await vexpensesFetch(`/expenses/${createdId}`, { method: "PUT", body: JSON.stringify({ ...basePayload, report_id: reportId }) });
+    } catch (updateCause) {
+      await vexpensesFetch(`/expenses/${createdId}`, { method: "DELETE" }).catch((deleteCause) => console.error("[vexpenses] cleanup failed", deleteCause));
+      throw updateCause;
+    }
     const sentAt = new Date().toISOString();
-    const { error: updateError } = await supabase.from("expenses").update({ vexpenses_status: "sent", vexpenses_expense_id: Number.isFinite(createdId) && createdId > 0 ? createdId : null, vexpenses_report_id: reportId, vexpenses_error: null, vexpenses_sent_at: sentAt }).eq("id", expense.id);
+    const { error: updateError } = await supabase.from("expenses").update({ vexpenses_status: "sent", vexpenses_expense_id: createdId, vexpenses_report_id: reportId, vexpenses_error: null, vexpenses_sent_at: sentAt }).eq("id", expense.id);
     if (updateError) throw new VexpensesApiError("A despesa foi enviada, mas o histórico local não pôde ser atualizado.");
     return NextResponse.json({ expenseId: Number.isFinite(createdId) ? createdId : null, reportId, sentAt });
   } catch (cause) {
