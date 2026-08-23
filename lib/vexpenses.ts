@@ -2,7 +2,14 @@ const API_BASE = "https://api.vexpenses.com/v2";
 
 export type VexpensesMember = { id: number; companyId: number; name: string; email: string };
 export type VexpensesExpenseType = { id: number; description: string; active: boolean };
-export type VexpensesReport = { id: number; description: string; status: string; userId: number };
+export type VexpensesReport = {
+  id: number;
+  description: string;
+  status: string;
+  userId: number;
+  payingCompanyId: number;
+  paymentMethodId: number;
+};
 
 type JsonRecord = Record<string, unknown>;
 
@@ -68,6 +75,23 @@ export async function getExpenseTypes(): Promise<VexpensesExpenseType[]> {
 export async function getReports(userId: number): Promise<VexpensesReport[]> {
   const query = new URLSearchParams({ paginate: "true", per_page: "100", search: `user_id:${userId}` });
   return dataItems(await vexpensesFetch(`/reports?${query}`))
-    .map((item) => ({ id: numberValue(item.id), description: stringValue(item.description), status: stringValue(item.status).toUpperCase(), userId: numberValue(item.user_id ?? asRecord(item.user)?.id) }))
+    .map(mapReport)
     .filter((item) => item.id && item.userId === userId);
+}
+
+export async function getReport(reportId: number): Promise<VexpensesReport> {
+  const report = dataItems(await vexpensesFetch(`/reports/${reportId}`))[0];
+  if (!report) throw new VexpensesApiError("O relatório escolhido não foi encontrado na VExpenses.", 404);
+  return mapReport(report);
+}
+
+function mapReport(item: JsonRecord): VexpensesReport {
+  return {
+    id: numberValue(item.id),
+    description: stringValue(item.description),
+    status: stringValue(item.status).toUpperCase(),
+    userId: numberValue(item.user_id ?? asRecord(item.user)?.id),
+    payingCompanyId: numberValue(item.paying_company_id ?? asRecord(item.paying_company)?.id),
+    paymentMethodId: numberValue(item.payment_method_id ?? asRecord(item.payment_method)?.id),
+  };
 }

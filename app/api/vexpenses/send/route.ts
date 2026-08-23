@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase, getBearerToken } from "@/lib/server-auth";
-import { asRecord, dataItems, getExpenseTypes, getMemberByEmail, getReports, vexpensesFetch, VexpensesApiError } from "@/lib/vexpenses";
+import { asRecord, dataItems, getExpenseTypes, getMemberByEmail, getReport, getReports, vexpensesFetch, VexpensesApiError } from "@/lib/vexpenses";
 
 export const runtime = "nodejs";
 
@@ -29,12 +29,14 @@ export async function POST(request: Request) {
     const [types, reports] = await Promise.all([getExpenseTypes(), getReports(member.id)]);
     if (!types.some((type) => type.id === expenseTypeId)) throw new VexpensesApiError("A categoria escolhida não está ativa na VExpenses.", 400);
     if (!reports.some((report) => report.id === reportId && ["ABERTO", "REABERTO"].includes(report.status))) throw new VexpensesApiError("O relatório escolhido não está aberto ou não pertence ao seu usuário.", 400);
+    const report = await getReport(reportId);
+    if (report.userId !== member.id || !["ABERTO", "REABERTO"].includes(report.status)) throw new VexpensesApiError("O relatório escolhido não está aberto ou não pertence ao seu usuário.", 400);
     const receipt = asRecord(expense.receipts);
     const storagePath = typeof receipt?.storage_path === "string" ? receipt.storage_path : "";
     const { data: signed, error: signedError } = await supabase.storage.from("receipts").createSignedUrl(storagePath, 86400);
     if (signedError || !signed?.signedUrl) throw new VexpensesApiError("Não foi possível preparar o comprovante para envio.");
     const title = String(expense.description || expense.supplier || expense.category || "Despesa").slice(0, 120);
-    const result = await vexpensesFetch("/expenses", { method: "POST", body: JSON.stringify({ user_id: member.id, external_id: expense.id, expense_type_id: expenseTypeId, paying_company_id: member.companyId, receipt_url: signed.signedUrl, date: expense.expense_date, value: Number(expense.amount), report_id: reportId, title, validate: "", observation: String(expense.notes || ""), reimbursable: true, original_currency_iso: expense.currency || "BRL" }) });
+    const result = await vexpensesFetch("/expenses", { method: "POST", body: JSON.stringify({ user_id: member.id, external_id: expense.id, expense_type_id: expenseTypeId, ...(report.paymentMethodId ? { payment_method_id: report.paymentMethodId } : {}), paying_company_id: report.payingCompanyId || member.companyId, receipt_url: signed.signedUrl, date: expense.expense_date, value: Number(expense.amount), report_id: reportId, title, validate: "", observation: String(expense.notes || ""), reimbursable: true, original_currency_iso: expense.currency || "BRL" }) });
     const created = dataItems(result)[0] || asRecord(result);
     const createdId = Number(created?.id);
     const sentAt = new Date().toISOString();
