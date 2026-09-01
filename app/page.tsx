@@ -103,6 +103,9 @@ export default function Home() {
   const [selectedExpenseTypeId, setSelectedExpenseTypeId] = useState("");
   const [sendingToVexpenses, setSendingToVexpenses] = useState(false);
 
+  const selectedReport = useMemo(() => vexpensesContext?.reports.find((report) => report.id.toString() === selectedReportId), [selectedReportId, vexpensesContext]);
+  const selectedExpenseType = useMemo(() => vexpensesContext?.expenseTypes.find((type) => type.id.toString() === selectedExpenseTypeId), [selectedExpenseTypeId, vexpensesContext]);
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user);
@@ -180,27 +183,45 @@ export default function Home() {
   }
 
   function openSendModal(row: Expense) {
-    if (!vexpensesContext) { setNotice(vexpensesMessage || "Conecte a VExpenses antes de enviar."); return; }
     setSendExpense(row);
-    setSelectedReportId(vexpensesContext.reports[0]?.id?.toString() || "");
-    const matchingType = vexpensesContext.expenseTypes.find((type) => type.description.toLocaleLowerCase("pt-BR").includes(row.category.toLocaleLowerCase("pt-BR")));
-    setSelectedExpenseTypeId((matchingType?.id || vexpensesContext.expenseTypes[0]?.id || "").toString());
+    setSelectedReportId(vexpensesContext?.reports[0]?.id?.toString() || "");
+    const matchingType = vexpensesContext?.expenseTypes.find((type) => type.description.toLocaleLowerCase("pt-BR").includes(row.category.toLocaleLowerCase("pt-BR")));
+    setSelectedExpenseTypeId((matchingType?.id || vexpensesContext?.expenseTypes[0]?.id || "").toString());
   }
 
-  async function confirmSendToVexpenses() {
-    if (!sendExpense || !selectedReportId || !selectedExpenseTypeId) return;
+  function formatExpenseForVexpenses(row: Expense) {
+    return [
+      `Arquivo: ${row.sourceFile}`,
+      `Fornecedor: ${row.supplier || ""}`,
+      `Data: ${row.date || ""}`,
+      `Valor: ${row.amount === null ? "" : row.amount.toFixed(2).replace(".", ",")}`,
+      `Categoria COMPROVA: ${row.category || ""}`,
+      `Categoria VExpenses: ${selectedExpenseType?.description || ""}`,
+      `Relatório VExpenses: ${selectedReport?.description || ""}`,
+      `Descrição: ${row.description || ""}`,
+      `Observações: ${row.notes || ""}`,
+    ].join("\n");
+  }
+
+  async function copyExpenseForVexpenses(row: Expense) {
+    await navigator.clipboard.writeText(formatExpenseForVexpenses(row));
+    setNotice("Dados da despesa copiados para lançamento na VExpenses.");
+  }
+
+  function openVexpenses() {
+    window.open("https://app.vexpenses.com/", "_blank", "noopener,noreferrer");
+  }
+
+  async function prepareAssistedLaunch() {
+    if (!sendExpense) return;
     setSendingToVexpenses(true);
     try {
       await saveExpense(sendExpense);
-      const response = await authenticatedFetch("/api/vexpenses/send", { method: "POST", body: JSON.stringify({ expenseId: sendExpense.id, reportId: Number(selectedReportId), expenseTypeId: Number(selectedExpenseTypeId) }) });
-      const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "O envio não foi concluído.");
-      setExpenses((current) => current.map((row) => row.id === sendExpense.id ? { ...row, vexpensesStatus: "sent", vexpensesExpenseId: payload.expenseId, vexpensesReportId: payload.reportId, vexpensesSentAt: payload.sentAt, vexpensesError: "" } : row));
-      setSendExpense(null);
-      setNotice("Despesa enviada com sucesso para o relatório escolhido na VExpenses.");
+      await copyExpenseForVexpenses(sendExpense);
+      openVexpenses();
+      setNotice("Dados copiados e VExpenses aberta. Anexe o comprovante original pela plataforma.");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "O envio não foi concluído.";
-      setExpenses((current) => current.map((row) => row.id === sendExpense.id ? { ...row, vexpensesStatus: "error", vexpensesError: message } : row));
+      const message = error instanceof Error ? error.message : "Não foi possível preparar o lançamento.";
       setNotice(message);
     } finally { setSendingToVexpenses(false); }
   }
@@ -368,7 +389,7 @@ export default function Home() {
       <section className="workspace" aria-label="Importação de comprovantes">
         <div className={`integrationBanner ${vexpensesContext ? "connected" : ""}`}>
           <span>{vexpensesContext ? "✓" : "V"}</span>
-          <div><strong>{vexpensesContext ? "VExpenses conectada" : "Integração com a VExpenses"}</strong><small>{vexpensesLoading ? "Consultando sua conta…" : vexpensesMessage || "Carregue seus relatórios e categorias para enviar uma despesa por vez."}</small></div>
+          <div><strong>{vexpensesContext ? "VExpenses conectada" : "Lançamento assistido na VExpenses"}</strong><small>{vexpensesLoading ? "Consultando sua conta…" : vexpensesMessage || "Use a leitura em lote para copiar os dados e cadastrar o comprovante na VExpenses."}</small></div>
           <button onClick={loadVexpensesContext} disabled={vexpensesLoading}>{vexpensesLoading ? "Aguarde…" : vexpensesContext ? "Atualizar" : "Conectar"}</button>
         </div>
         <div className={`dropzone ${dragging ? "dragging" : ""}`} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop} onClick={() => inputRef.current?.click()} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") inputRef.current?.click(); }}>
@@ -393,7 +414,7 @@ export default function Home() {
           {expenses.length > 0 && <div className="actions"><button onClick={copyTable}>Copiar tabela</button><button className="dark" onClick={exportCsv}>Baixar Excel (CSV)</button></div>}
         </div>
         {expenses.length > 0 ? <><div className="tableWrap"><table>
-          <thead><tr><th>Arquivo</th><th>Fornecedor</th><th>Data</th><th>Valor</th><th>Categoria</th><th>Descrição</th><th>Leitura</th><th>VExpenses</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Arquivo</th><th>Fornecedor</th><th>Data</th><th>Valor</th><th>Categoria</th><th>Descrição</th><th>Leitura</th><th>Lançamento</th><th>Ações</th></tr></thead>
           <tbody>{expenses.map((row) => <tr key={row.id} className={row.confidence === "baixa" ? "needsReview" : ""}>
             <td className="source" title={row.sourceFile}><button className="sourceLink" onClick={() => openReceipt(row)}>{row.sourceFile}<span aria-hidden="true">↗</span></button></td>
             <td><input value={row.supplier} onChange={(e) => updateExpense(row.id, "supplier", e.target.value)} /></td>
@@ -402,21 +423,28 @@ export default function Home() {
             <td><select value={row.category} onChange={(e) => updateExpense(row.id, "category", e.target.value)}>{categories.map((category) => <option key={category}>{category}</option>)}</select></td>
             <td><input value={row.description} onChange={(e) => updateExpense(row.id, "description", e.target.value)} /></td>
             <td><span className={`confidence ${row.confidence}`}>{row.confidence === "alta" ? "Alta" : row.confidence === "media" ? "Revisar" : "Baixa"}</span></td>
-            <td><button className={`sendButton ${row.vexpensesStatus}`} onClick={() => openSendModal(row)} disabled={row.vexpensesStatus === "sent"}>{row.vexpensesStatus === "sent" ? "Enviado ✓" : row.vexpensesStatus === "error" ? "Tentar envio" : "Enviar"}</button>{row.vexpensesError && <span className="sendError" title={row.vexpensesError}>{row.vexpensesError}</span>}</td>
+            <td><button className="sendButton" onClick={() => openSendModal(row)}>Assistir</button></td>
             <td><div className="rowActions"><button onClick={() => saveExpense(row)}>Salvar</button><button className="delete" onClick={() => deleteExpense(row)} aria-label={`Excluir ${row.sourceFile}`}>×</button></div></td>
           </tr>)}</tbody>
           <tfoot><tr><td colSpan={3}>{expenses.length} despesa(s)</td><td>{money(total, "BRL")}</td><td colSpan={5} /></tr></tfoot>
         </table></div><p className="hint"><span>!</span> Linhas destacadas merecem conferência. Clique no nome do arquivo para abrir o comprovante original.</p></> : <div className="emptyHistory"><span>⌁</span><h3>Nenhum comprovante salvo</h3><p>Envie o primeiro lote acima para iniciar seu histórico.</p></div>}
       </section>
-      {sendExpense && vexpensesContext && <div className="modalBackdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !sendingToVexpenses) setSendExpense(null); }}>
-        <section className="modal" role="dialog" aria-modal="true" aria-labelledby="send-title">
+      {sendExpense && <div className="modalBackdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !sendingToVexpenses) setSendExpense(null); }}>
+        <section className="modal assistedModal" role="dialog" aria-modal="true" aria-labelledby="send-title">
           <button className="modalClose" onClick={() => setSendExpense(null)} disabled={sendingToVexpenses} aria-label="Fechar">×</button>
-          <span className="modalEyebrow">Envio real para a VExpenses</span><h2 id="send-title">Confirmar 1 despesa</h2>
+          <span className="modalEyebrow">Lançamento assistido</span><h2 id="send-title">Preparar na VExpenses</h2>
           <p><strong>{sendExpense.sourceFile}</strong><br />{sendExpense.supplier || "Fornecedor não identificado"} · {money(sendExpense.amount, sendExpense.currency)}</p>
-          <label htmlFor="vexpenses-report">Relatório</label><select id="vexpenses-report" value={selectedReportId} onChange={(event) => setSelectedReportId(event.target.value)}>{vexpensesContext.reports.length ? vexpensesContext.reports.map((report) => <option key={report.id} value={report.id}>{report.description || `Relatório ${report.id}`} · {report.status}</option>) : <option value="">Nenhum relatório aberto</option>}</select>
-          <label htmlFor="vexpenses-type">Categoria na VExpenses</label><select id="vexpenses-type" value={selectedExpenseTypeId} onChange={(event) => setSelectedExpenseTypeId(event.target.value)}>{vexpensesContext.expenseTypes.map((type) => <option key={type.id} value={type.id}>{type.description}</option>)}</select>
-          <div className="keySafety"><span>!</span><p>Este botão cria uma despesa real no relatório selecionado. Nesta primeira versão, o envio é sempre individual e exige sua confirmação.</p></div>
-          <button className="primary modalPrimary" onClick={confirmSendToVexpenses} disabled={sendingToVexpenses || !selectedReportId || !selectedExpenseTypeId}>{sendingToVexpenses ? "Enviando…" : "Enviar esta despesa agora"}<span>→</span></button>
+          {vexpensesContext && <>
+            <label htmlFor="vexpenses-report">Relatório</label><select id="vexpenses-report" value={selectedReportId} onChange={(event) => setSelectedReportId(event.target.value)}>{vexpensesContext.reports.length ? vexpensesContext.reports.map((report) => <option key={report.id} value={report.id}>{report.description || `Relatório ${report.id}`} · {report.status}</option>) : <option value="">Nenhum relatório aberto</option>}</select>
+            <label htmlFor="vexpenses-type">Categoria na VExpenses</label><select id="vexpenses-type" value={selectedExpenseTypeId} onChange={(event) => setSelectedExpenseTypeId(event.target.value)}>{vexpensesContext.expenseTypes.map((type) => <option key={type.id} value={type.id}>{type.description}</option>)}</select>
+          </>}
+          <div className="assistGrid">
+            <button onClick={() => copyExpenseForVexpenses(sendExpense)}>Copiar dados</button>
+            <button onClick={() => openReceipt(sendExpense)}>Abrir comprovante</button>
+            <button onClick={openVexpenses}>Abrir VExpenses</button>
+          </div>
+          <div className="keySafety"><span>!</span><p>A API da VExpenses não aceita anexar comprovante. Este modo prepara os dados e abre a plataforma para você anexar o arquivo original.</p></div>
+          <button className="primary modalPrimary" onClick={prepareAssistedLaunch} disabled={sendingToVexpenses}>{sendingToVexpenses ? "Preparando…" : "Copiar dados e abrir VExpenses"}<span>→</span></button>
         </section>
       </div>}
       <footer><span>Comprova</span><p>Organize. Confira. Reembolse.</p></footer>

@@ -129,6 +129,10 @@ footer p { margin:0; }
 .keySafety span { font-weight:900; }
 .keySafety p { margin:0; font-size:11px; line-height:1.45; }
 .modalPrimary { margin-top:18px; }
+.assistedModal { width:min(540px,100%); }
+.assistGrid { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin:4px 0 13px; }
+.assistGrid button { min-height:44px; border:1px solid #a9beb5; border-radius:8px; background:white; color:var(--green); padding:9px; font-size:11px; font-weight:900; }
+.assistGrid button:hover { border-color:var(--green); background:#f3faf6; }
 .removeKey { width:100%; margin-top:10px; border:0; background:transparent; color:#9a4432; font-size:11px; text-decoration:underline; }
 .keyHelp { display:block; margin-top:17px; text-align:center; color:var(--green); font-size:11px; font-weight:800; }
 @media (max-width:720px) {
@@ -152,6 +156,7 @@ footer p { margin:0; }
   .status { max-width:80px; text-align:right; }
   .setupBanner b { display:none; }
   .modal { padding:33px 23px; }
+  .assistGrid { grid-template-columns:1fr; }
   .authShell { grid-template-columns:1fr; padding:35px 5vw; }
   .authIntro { display:none; }
   .authCard { padding:30px 23px; }
