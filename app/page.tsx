@@ -101,6 +101,9 @@ export default function Home() {
   const [sendExpense, setSendExpense] = useState<Expense | null>(null);
   const [selectedReportId, setSelectedReportId] = useState("");
   const [selectedExpenseTypeId, setSelectedExpenseTypeId] = useState("");
+  const [manualReportName, setManualReportName] = useState("");
+  const [defaultCostCenter, setDefaultCostCenter] = useState("Comercial");
+  const [defaultPaymentMethod, setDefaultPaymentMethod] = useState("Cartão Pessoal");
   const [sendingToVexpenses, setSendingToVexpenses] = useState(false);
 
   const selectedReport = useMemo(() => vexpensesContext?.reports.find((report) => report.id.toString() === selectedReportId), [selectedReportId, vexpensesContext]);
@@ -184,7 +187,9 @@ export default function Home() {
 
   function openSendModal(row: Expense) {
     setSendExpense(row);
-    setSelectedReportId(vexpensesContext?.reports[0]?.id?.toString() || "");
+    const firstReport = vexpensesContext?.reports[0];
+    setSelectedReportId(firstReport?.id?.toString() || "");
+    setManualReportName(firstReport?.description || "");
     const matchingType = vexpensesContext?.expenseTypes.find((type) => type.description.toLocaleLowerCase("pt-BR").includes(row.category.toLocaleLowerCase("pt-BR")));
     setSelectedExpenseTypeId((matchingType?.id || vexpensesContext?.expenseTypes[0]?.id || "").toString());
   }
@@ -197,10 +202,62 @@ export default function Home() {
       `Valor: ${row.amount === null ? "" : row.amount.toFixed(2).replace(".", ",")}`,
       `Categoria COMPROVA: ${row.category || ""}`,
       `Categoria VExpenses: ${selectedExpenseType?.description || ""}`,
-      `Relatório VExpenses: ${selectedReport?.description || ""}`,
+      `Relatório VExpenses: ${manualReportName || selectedReport?.description || ""}`,
+      `Centro de custos: ${defaultCostCenter}`,
+      `Forma de pagamento: ${defaultPaymentMethod}`,
+      `Reembolsável: Sim`,
       `Descrição: ${row.description || ""}`,
       `Observações: ${row.notes || ""}`,
     ].join("\n");
+  }
+
+  function guessVexpensesTypeName(row: Expense) {
+    const fromSelected = selectedExpenseType?.description;
+    if (sendExpense?.id === row.id && fromSelected) return fromSelected;
+    const matchingType = vexpensesContext?.expenseTypes.find((type) => type.description.toLocaleLowerCase("pt-BR").includes(row.category.toLocaleLowerCase("pt-BR")));
+    return matchingType?.description || row.category || "Outros";
+  }
+
+  async function buildLaunchItem(row: Expense) {
+    const { data, error } = await supabase.storage.from("receipts").createSignedUrl(row.storagePath, 60 * 60);
+    if (error || !data) throw new Error(`Não foi possível gerar link do comprovante ${row.sourceFile}.`);
+    return {
+      id: row.id,
+      arquivo: row.sourceFile,
+      comprovante_url_temporaria: data.signedUrl,
+      fornecedor: row.supplier || "",
+      data: row.date || "",
+      valor: row.amount,
+      moeda: row.currency || "BRL",
+      categoria_comprova: row.category || "",
+      tipo_vexpenses: guessVexpensesTypeName(row),
+      relatorio_vexpenses: manualReportName || selectedReport?.description || "",
+      centro_de_custos: defaultCostCenter,
+      forma_de_pagamento: defaultPaymentMethod,
+      reembolsavel: true,
+      descricao: row.description || row.supplier || row.sourceFile,
+      observacoes: row.notes || "",
+      confianca_leitura: row.confidence,
+    };
+  }
+
+  async function copyRobotPackage(rows: Expense[] = expenses) {
+    if (!rows.length) return;
+    try {
+      const items = await Promise.all(rows.map(buildLaunchItem));
+      const payload = {
+        origem: "COMPROVA",
+        destino: "VExpenses",
+        instrucao: "Abrir o relatório informado na VExpenses, adicionar cada item como Despesa manual, anexar comprovante_url_temporaria e criar a despesa. Não enviar o relatório para aprovação.",
+        gerado_em: new Date().toISOString(),
+        total_despesas: items.length,
+        despesas: items,
+      };
+      await navigator.clipboard.writeText(JSON.stringify(payload, null, 2));
+      setNotice(`Pacote do robô copiado com ${items.length} despesa(s). Os links dos comprovantes valem por 1 hora.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Não foi possível copiar o pacote do robô.");
+    }
   }
 
   async function copyExpenseForVexpenses(row: Expense) {
@@ -392,6 +449,11 @@ export default function Home() {
           <div><strong>{vexpensesContext ? "VExpenses conectada" : "Lançamento assistido na VExpenses"}</strong><small>{vexpensesLoading ? "Consultando sua conta…" : vexpensesMessage || "Use a leitura em lote para copiar os dados e cadastrar o comprovante na VExpenses."}</small></div>
           <button onClick={loadVexpensesContext} disabled={vexpensesLoading}>{vexpensesLoading ? "Aguarde…" : vexpensesContext ? "Atualizar" : "Conectar"}</button>
         </div>
+        <div className="robotConfig" aria-label="Configuração do lançamento assistido">
+          <label htmlFor="robot-report">Relatório VExpenses<input id="robot-report" value={manualReportName} onChange={(event) => setManualReportName(event.target.value)} placeholder="Nome exato do relatório, ex.: Teste" /></label>
+          <label htmlFor="robot-cost-center">Centro de custos<input id="robot-cost-center" value={defaultCostCenter} onChange={(event) => setDefaultCostCenter(event.target.value)} /></label>
+          <label htmlFor="robot-payment">Forma de pagamento<input id="robot-payment" value={defaultPaymentMethod} onChange={(event) => setDefaultPaymentMethod(event.target.value)} /></label>
+        </div>
         <div className={`dropzone ${dragging ? "dragging" : ""}`} onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={onDrop} onClick={() => inputRef.current?.click()} role="button" tabIndex={0} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") inputRef.current?.click(); }}>
           <input ref={inputRef} type="file" multiple accept="image/jpeg,image/png,image/webp,application/pdf" onChange={(event: ChangeEvent<HTMLInputElement>) => event.target.files && addFiles(event.target.files)} />
           <div className="uploadIcon">↑</div><h2>Solte seus comprovantes aqui</h2><p>ou <span>escolha os arquivos</span> no seu computador</p><small>JPG, PNG, WEBP ou PDF · até 20 MB por arquivo</small>
@@ -411,7 +473,7 @@ export default function Home() {
 
       <section className="results">
         <div className="resultsHeader"><div><span className="sectionNumber">Histórico</span><h2>Seus comprovantes</h2><p>{historyLoading ? "Carregando…" : expenses.length ? "Edite um campo e clique em salvar." : "As próximas leituras aparecerão aqui."}</p></div>
-          {expenses.length > 0 && <div className="actions"><button onClick={copyTable}>Copiar tabela</button><button className="dark" onClick={exportCsv}>Baixar Excel (CSV)</button></div>}
+          {expenses.length > 0 && <div className="actions"><button onClick={copyTable}>Copiar tabela</button><button onClick={() => copyRobotPackage()}>Copiar pacote VExpenses</button><button className="dark" onClick={exportCsv}>Baixar Excel (CSV)</button></div>}
         </div>
         {expenses.length > 0 ? <><div className="tableWrap"><table>
           <thead><tr><th>Arquivo</th><th>Fornecedor</th><th>Data</th><th>Valor</th><th>Categoria</th><th>Descrição</th><th>Leitura</th><th>Lançamento</th><th>Ações</th></tr></thead>
@@ -435,12 +497,19 @@ export default function Home() {
           <span className="modalEyebrow">Lançamento assistido</span><h2 id="send-title">Preparar na VExpenses</h2>
           <p><strong>{sendExpense.sourceFile}</strong><br />{sendExpense.supplier || "Fornecedor não identificado"} · {money(sendExpense.amount, sendExpense.currency)}</p>
           {vexpensesContext && <>
-            <label htmlFor="vexpenses-report">Relatório</label><select id="vexpenses-report" value={selectedReportId} onChange={(event) => setSelectedReportId(event.target.value)}>{vexpensesContext.reports.length ? vexpensesContext.reports.map((report) => <option key={report.id} value={report.id}>{report.description || `Relatório ${report.id}`} · {report.status}</option>) : <option value="">Nenhum relatório aberto</option>}</select>
+            <label htmlFor="vexpenses-report">Relatório</label><select id="vexpenses-report" value={selectedReportId} onChange={(event) => { const nextId = event.target.value; setSelectedReportId(nextId); setManualReportName(vexpensesContext.reports.find((report) => report.id.toString() === nextId)?.description || ""); }}>{vexpensesContext.reports.length ? vexpensesContext.reports.map((report) => <option key={report.id} value={report.id}>{report.description || `Relatório ${report.id}`} · {report.status}</option>) : <option value="">Nenhum relatório aberto</option>}</select>
             <label htmlFor="vexpenses-type">Categoria na VExpenses</label><select id="vexpenses-type" value={selectedExpenseTypeId} onChange={(event) => setSelectedExpenseTypeId(event.target.value)}>{vexpensesContext.expenseTypes.map((type) => <option key={type.id} value={type.id}>{type.description}</option>)}</select>
           </>}
+          <label htmlFor="manual-report-name">Nome exato do relatório na VExpenses</label>
+          <input id="manual-report-name" value={manualReportName} onChange={(event) => setManualReportName(event.target.value)} placeholder="Ex.: Teste" />
+          <div className="modalColumns">
+            <label htmlFor="default-cost-center">Centro de custos<input id="default-cost-center" value={defaultCostCenter} onChange={(event) => setDefaultCostCenter(event.target.value)} /></label>
+            <label htmlFor="default-payment-method">Forma de pagamento<input id="default-payment-method" value={defaultPaymentMethod} onChange={(event) => setDefaultPaymentMethod(event.target.value)} /></label>
+          </div>
           <div className="assistGrid">
             <button onClick={() => copyExpenseForVexpenses(sendExpense)}>Copiar dados</button>
             <button onClick={() => openReceipt(sendExpense)}>Abrir comprovante</button>
+            <button onClick={() => copyRobotPackage([sendExpense])}>Copiar pacote robô</button>
             <button onClick={openVexpenses}>Abrir VExpenses</button>
           </div>
           <div className="keySafety"><span>!</span><p>A API da VExpenses não aceita anexar comprovante. Este modo prepara os dados e abre a plataforma para você anexar o arquivo original.</p></div>

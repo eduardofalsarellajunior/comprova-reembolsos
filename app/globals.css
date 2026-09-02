@@ -30,6 +30,10 @@ button { cursor:pointer; }
 .integrationBanner strong { font-size:13px; }
 .integrationBanner small { color:var(--muted); line-height:1.4; }
 .integrationBanner>button { border:1px solid #a9beb5; border-radius:7px; padding:8px 11px; background:white; color:var(--green); font-size:10px; font-weight:900; }
+.robotConfig { margin:-2px 0 16px; padding:14px; display:grid; grid-template-columns:1.2fr .9fr .9fr; gap:10px; border:1px solid var(--line); border-radius:13px; background:white; box-shadow:0 8px 25px rgba(38,78,64,.04); }
+.robotConfig label { color:var(--ink); font-size:10px; font-weight:900; letter-spacing:.8px; text-transform:uppercase; }
+.robotConfig input { width:100%; margin-top:7px; border:1px solid #bfc9c4; border-radius:9px; padding:10px 11px; background:white; color:var(--ink); font-size:12px; font-weight:500; letter-spacing:0; text-transform:none; }
+.robotConfig input:focus { outline:2px solid var(--lime); border-color:var(--green); }
 .setupBanner { width:100%; margin-bottom:14px; padding:15px 17px; border:1px solid #c7dbd3; border-radius:12px; background:white; display:flex; align-items:center; gap:13px; text-align:left; color:var(--ink); box-shadow:0 8px 25px rgba(38,78,64,.05); }
 .setupBanner>span { width:31px; height:31px; flex:0 0 auto; border-radius:50%; display:grid; place-items:center; background:var(--lime); font-weight:900; }
 .setupBanner div { flex:1; display:flex; flex-direction:column; gap:2px; }
@@ -125,12 +129,16 @@ footer p { margin:0; }
 .modal>input { width:100%; border:1px solid #bfc9c4; border-radius:9px; padding:13px; background:white; color:var(--ink); }
 .modal>select { width:100%; margin-bottom:17px; border:1px solid #bfc9c4; border-radius:9px; padding:13px; background:white; color:var(--ink); }
 .modal>input:focus { outline:2px solid var(--lime); border-color:var(--green); }
+.modalColumns { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:0 0 15px; }
+.modalColumns label { margin:0; }
+.modalColumns input { width:100%; margin-top:7px; border:1px solid #bfc9c4; border-radius:9px; padding:11px; background:white; color:var(--ink); font-size:12px; }
+.modalColumns input:focus { outline:2px solid var(--lime); border-color:var(--green); }
 .keySafety { margin-top:13px; padding:11px; display:flex; gap:9px; border-radius:9px; background:var(--mint); color:var(--green); }
 .keySafety span { font-weight:900; }
 .keySafety p { margin:0; font-size:11px; line-height:1.45; }
 .modalPrimary { margin-top:18px; }
 .assistedModal { width:min(540px,100%); }
-.assistGrid { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin:4px 0 13px; }
+.assistGrid { display:grid; grid-template-columns:repeat(2,1fr); gap:9px; margin:4px 0 13px; }
 .assistGrid button { min-height:44px; border:1px solid #a9beb5; border-radius:8px; background:white; color:var(--green); padding:9px; font-size:11px; font-weight:900; }
 .assistGrid button:hover { border-color:var(--green); background:#f3faf6; }
 .removeKey { width:100%; margin-top:10px; border:0; background:transparent; color:#9a4432; font-size:11px; text-decoration:underline; }
@@ -146,6 +154,7 @@ footer p { margin:0; }
   .hero h1 { font-size:48px; letter-spacing:-3px; }
   .hero p { font-size:15px; }
   .workspace { width:90vw; margin-bottom:60px; }
+  .robotConfig { grid-template-columns:1fr; }
   .dropzone { padding:44px 18px; }
   .results { padding:52px 5vw; }
   .resultsHeader { align-items:flex-start; flex-direction:column; gap:22px; }
@@ -156,6 +165,7 @@ footer p { margin:0; }
   .status { max-width:80px; text-align:right; }
   .setupBanner b { display:none; }
   .modal { padding:33px 23px; }
+  .modalColumns { grid-template-columns:1fr; }
   .assistGrid { grid-template-columns:1fr; }
   .authShell { grid-template-columns:1fr; padding:35px 5vw; }
   .authIntro { display:none; }
