@@ -383,6 +383,29 @@ export default function Home() {
     }
   }
 
+  async function clearAllExpenses() {
+    if (!expenses.length) return;
+    const confirmed = window.confirm(`Excluir todos os ${expenses.length} comprovantes do seu histórico? Esta ação não poderá ser desfeita.`);
+    if (!confirmed) return;
+
+    setHistoryLoading(true);
+    setNotice("");
+    const expenseIds = expenses.map((row) => row.id);
+    const receiptIds = Array.from(new Set(expenses.map((row) => row.receiptId)));
+    const storagePaths = Array.from(new Set(expenses.map((row) => row.storagePath).filter(Boolean)));
+    const { error } = await supabase.from("expenses").delete().in("id", expenseIds);
+    if (error) {
+      setNotice("Não foi possível limpar os comprovantes.");
+      setHistoryLoading(false);
+      return;
+    }
+    if (storagePaths.length) await supabase.storage.from("receipts").remove(storagePaths);
+    if (receiptIds.length) await supabase.from("receipts").delete().in("id", receiptIds);
+    setExpenses([]);
+    setNotice("Todos os comprovantes foram removidos do histórico.");
+    setHistoryLoading(false);
+  }
+
   function copyTable() {
     const headers = ["Arquivo", "Fornecedor", "Data", "Valor", "Moeda", "Categoria", "Descrição", "Confiança", "Observações"];
     const rows = expenses.map((row) => [row.sourceFile, row.supplier, row.date, row.amount?.toFixed(2).replace(".", ",") || "", row.currency, row.category, row.description, row.confidence, row.notes]);
@@ -473,7 +496,7 @@ export default function Home() {
 
       <section className="results">
         <div className="resultsHeader"><div><span className="sectionNumber">Histórico</span><h2>Seus comprovantes</h2><p>{historyLoading ? "Carregando…" : expenses.length ? "Edite um campo e clique em salvar." : "As próximas leituras aparecerão aqui."}</p></div>
-          {expenses.length > 0 && <div className="actions"><button onClick={copyTable}>Copiar tabela</button><button onClick={() => copyRobotPackage()}>Copiar pacote VExpenses</button><button className="dark" onClick={exportCsv}>Baixar Excel (CSV)</button></div>}
+          {expenses.length > 0 && <div className="actions"><button onClick={copyTable}>Copiar tabela</button><button onClick={() => copyRobotPackage()}>Copiar pacote VExpenses</button><button className="dark" onClick={exportCsv}>Baixar Excel (CSV)</button><button className="deleteAll" onClick={clearAllExpenses} disabled={historyLoading}>Limpar comprovantes</button></div>}
         </div>
         {expenses.length > 0 ? <><div className="tableWrap"><table>
           <thead><tr><th>Arquivo</th><th>Fornecedor</th><th>Data</th><th>Valor</th><th>Categoria</th><th>Descrição</th><th>Leitura</th><th>Lançamento</th><th>Ações</th></tr></thead>
