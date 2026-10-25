@@ -260,6 +260,28 @@ export default function Home() {
     }
   }
 
+  async function downloadReceipts(rows: Expense[] = expenses) {
+    if (!rows.length) return;
+    try {
+      setNotice("Preparando os comprovantes para download…");
+      for (const row of rows) {
+        const { data, error } = await supabase.storage.from("receipts").createSignedUrl(row.storagePath, 60 * 60);
+        if (error || !data?.signedUrl) throw new Error(`Não foi possível preparar ${row.sourceFile}.`);
+        const link = document.createElement("a");
+        link.href = data.signedUrl;
+        link.download = row.sourceFile;
+        link.target = "_blank";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+      setNotice(`${rows.length} comprovante(s) enviado(s) para download. Aguarde a conclusão antes de anexar no VExpenses.`);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Não foi possível baixar os comprovantes.");
+    }
+  }
+
   async function copyExpenseForVexpenses(row: Expense) {
     await navigator.clipboard.writeText(formatExpenseForVexpenses(row));
     setNotice("Dados da despesa copiados para lançamento na VExpenses.");
@@ -496,7 +518,7 @@ export default function Home() {
 
       <section className="results">
         <div className="resultsHeader"><div><span className="sectionNumber">Histórico</span><h2>Seus comprovantes</h2><p>{historyLoading ? "Carregando…" : expenses.length ? "Edite um campo e clique em salvar." : "As próximas leituras aparecerão aqui."}</p></div>
-          {expenses.length > 0 && <div className="actions"><button onClick={copyTable}>Copiar tabela</button><button onClick={() => copyRobotPackage()}>Copiar pacote VExpenses</button><button className="dark" onClick={exportCsv}>Baixar Excel (CSV)</button><button className="deleteAll" onClick={clearAllExpenses} disabled={historyLoading}>Limpar comprovantes</button></div>}
+          {expenses.length > 0 && <div className="actions"><button onClick={copyTable}>Copiar tabela</button><button onClick={() => copyRobotPackage()}>Copiar pacote VExpenses</button><button onClick={() => downloadReceipts()}>Baixar comprovantes</button><button className="dark" onClick={exportCsv}>Baixar Excel (CSV)</button><button className="deleteAll" onClick={clearAllExpenses} disabled={historyLoading}>Limpar comprovantes</button></div>}
         </div>
         {expenses.length > 0 ? <><div className="tableWrap"><table>
           <thead><tr><th>Arquivo</th><th>Fornecedor</th><th>Data</th><th>Valor</th><th>Categoria</th><th>Descrição</th><th>Leitura</th><th>Lançamento</th><th>Ações</th></tr></thead>
