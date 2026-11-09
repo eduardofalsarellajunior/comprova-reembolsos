@@ -3,6 +3,7 @@
 import { ChangeEvent, DragEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { categories, type Expense } from "@/lib/expenses";
 import { createClient } from "@/lib/supabase/client";
+import { DOCUMENTS_BUCKET } from "@/lib/supabase/config";
 
 type User = { id: string; email?: string };
 
@@ -155,6 +156,34 @@ export default function Home() {
     setAuthBusy(false);
   }
 
+  async function signInWithOffice365() {
+    setAuthBusy(true);
+    setNotice("");
+    const auth = supabase.auth as unknown as { signInWithOAuth: (credentials: { provider: string; options: { scopes: string; redirectTo: string } }) => Promise<{ error: { message: string } | null }> };
+    const { error } = await auth.signInWithOAuth({
+      provider: "azure",
+      options: {
+        scopes: "email",
+        redirectTo: window.location.origin,
+      },
+    });
+    if (error) {
+      setNotice("Não foi possível iniciar o login pelo Office 365. Verifique a configuração do provedor Azure no Supabase.");
+      setAuthBusy(false);
+    }
+  }
+
+  async function linkOffice365() {
+    setAuthBusy(true);
+    setNotice("");
+    const auth = supabase.auth as unknown as { linkIdentity: (credentials: { provider: string; options: { scopes: string; redirectTo: string } }) => Promise<{ error: { message: string } | null }> };
+    const { error } = await auth.linkIdentity({ provider: "azure", options: { scopes: "email", redirectTo: window.location.origin } });
+    if (error) {
+      setNotice("Não foi possível vincular o Office 365 a esta conta.");
+      setAuthBusy(false);
+    }
+  }
+
   async function signOut() {
     await supabase.auth.signOut();
     setUser(null);
@@ -219,7 +248,7 @@ export default function Home() {
   }
 
   async function buildLaunchItem(row: Expense) {
-    const { data, error } = await supabase.storage.from("receipts").createSignedUrl(row.storagePath, 60 * 60);
+    const { data, error } = await supabase.storage.from(DOCUMENTS_BUCKET).createSignedUrl(row.storagePath, 60 * 60);
     if (error || !data) throw new Error(`Não foi possível gerar link do comprovante ${row.sourceFile}.`);
     return {
       id: row.id,
@@ -265,7 +294,7 @@ export default function Home() {
     try {
       setNotice("Preparando os comprovantes para download…");
       for (const row of rows) {
-        const { data, error } = await supabase.storage.from("receipts").createSignedUrl(row.storagePath, 60 * 60);
+        const { data, error } = await supabase.storage.from(DOCUMENTS_BUCKET).createSignedUrl(row.storagePath, 60 * 60);
         if (error || !data?.signedUrl) throw new Error(`Não foi possível preparar ${row.sourceFile}.`);
         const link = document.createElement("a");
         link.href = data.signedUrl;
@@ -335,7 +364,7 @@ export default function Home() {
         const token = sessionData.session?.access_token;
         if (!token) throw new Error("Sua sessão expirou. Entre novamente.");
         storagePath = `${user.id}/${crypto.randomUUID()}-${safeFileName(item.file.name)}`;
-        const { error: uploadError } = await supabase.storage.from("receipts").upload(storagePath, item.file, { contentType: item.file.type, upsert: false });
+        const { error: uploadError } = await supabase.storage.from(DOCUMENTS_BUCKET).upload(storagePath, item.file, { contentType: item.file.type, upsert: false });
         if (uploadError) throw new Error("Não foi possível armazenar o comprovante.");
         const { data: receipt, error: receiptError } = await supabase.from("receipts").insert({
           user_id: user.id,
@@ -360,7 +389,7 @@ export default function Home() {
         setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "concluido" } : entry));
       } catch (error) {
         const message = error instanceof Error ? error.message : "Erro inesperado.";
-        if (storagePath && !receiptId) await supabase.storage.from("receipts").remove([storagePath]);
+        if (storagePath && !receiptId) await supabase.storage.from(DOCUMENTS_BUCKET).remove([storagePath]);
         setFiles((current) => current.map((entry) => entry.id === item.id ? { ...entry, status: "erro", error: message } : entry));
       }
     }
@@ -368,7 +397,7 @@ export default function Home() {
   }
 
   async function openReceipt(row: Expense) {
-    const { data, error } = await supabase.storage.from("receipts").createSignedUrl(row.storagePath, 60);
+    const { data, error } = await supabase.storage.from(DOCUMENTS_BUCKET).createSignedUrl(row.storagePath, 60);
     if (error || !data) setNotice("Não foi possível abrir o comprovante.");
     else window.open(data.signedUrl, "_blank", "noopener,noreferrer");
   }
@@ -400,7 +429,7 @@ export default function Home() {
     if (error) { setNotice("Não foi possível excluir esta despesa."); return; }
     setExpenses((current) => current.filter((item) => item.id !== row.id));
     if (sameReceipt === 1) {
-      await supabase.storage.from("receipts").remove([row.storagePath]);
+      await supabase.storage.from(DOCUMENTS_BUCKET).remove([row.storagePath]);
       await supabase.from("receipts").delete().eq("id", row.receiptId);
     }
   }
@@ -421,7 +450,7 @@ export default function Home() {
       setHistoryLoading(false);
       return;
     }
-    if (storagePaths.length) await supabase.storage.from("receipts").remove(storagePaths);
+    if (storagePaths.length) await supabase.storage.from(DOCUMENTS_BUCKET).remove(storagePaths);
     if (receiptIds.length) await supabase.from("receipts").delete().in("id", receiptIds);
     setExpenses([]);
     setNotice("Todos os comprovantes foram removidos do histórico.");
@@ -462,6 +491,11 @@ export default function Home() {
         <span className="brand"><span className="brandMark">C</span><span>comprova</span></span>
         <h2>{authMode === "login" ? "Entrar no sistema" : "Criar minha conta"}</h2>
         <p>{authMode === "login" ? "Use seu e-mail e senha para continuar." : "Seu histórico ficará vinculado a esta conta."}</p>
+        <button type="button" className="officeButton" onClick={signInWithOffice365} disabled={authBusy}>
+          <span className="officeLogo">▦</span>
+          {authBusy ? "Abrindo Office 365…" : "Entrar com Office 365"}
+        </button>
+        <div className="authDivider"><span>ou acesso local</span></div>
         <label htmlFor="email">E-mail</label>
         <input id="email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} required autoComplete="email" />
         <label htmlFor="password">Senha</label>
@@ -479,7 +513,7 @@ export default function Home() {
     <main>
       <header className="topbar">
         <a className="brand" href="#inicio" aria-label="Comprova início"><span className="brandMark">C</span><span>comprova</span></a>
-        <div className="topActions"><span className="privacy"><span className="privacyDot" /> Arquivos privados e histórico protegido</span><span className="userEmail">{user.email}</span><button className="settingsButton" onClick={signOut}>Sair</button></div>
+        <div className="topActions"><span className="privacy"><span className="privacyDot" /> Arquivos privados e histórico protegido</span><a className="settingsButton" href="/relatorios">Relatórios</a><button className="settingsButton" onClick={linkOffice365} disabled={authBusy}>Vincular Office 365</button><span className="userEmail">{user.email}</span><button className="settingsButton" onClick={signOut}>Sair</button></div>
       </header>
 
       <section className="hero" id="inicio">

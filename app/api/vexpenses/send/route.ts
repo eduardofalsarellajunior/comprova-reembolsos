@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase, getBearerToken } from "@/lib/server-auth";
 import { createReceiptLinkToken } from "@/lib/receipt-link";
+import { DOCUMENTS_BUCKET } from "@/lib/supabase/config";
 import { asRecord, dataItems, getExpenseTypes, getMemberByEmail, getReport, getReports, vexpensesFetch, VexpensesApiError } from "@/lib/vexpenses";
 
 export const runtime = "nodejs";
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
     if (report.userId !== member.id || !["ABERTO", "REABERTO"].includes(report.status)) throw new VexpensesApiError("O relatório escolhido não está aberto ou não pertence ao seu usuário.", 400);
     const receipt = asRecord(expense.receipts);
     const storagePath = typeof receipt?.storage_path === "string" ? receipt.storage_path : "";
-    const { data: signed, error: signedError } = await supabase.storage.from("receipts").createSignedUrl(storagePath, 86400);
+    const { data: signed, error: signedError } = await supabase.storage.from(DOCUMENTS_BUCKET).createSignedUrl(storagePath, 86400);
     if (signedError || !signed?.signedUrl) throw new VexpensesApiError("Não foi possível preparar o comprovante para envio.");
     const receiptName = String(receipt?.file_name || storagePath.split("/").pop() || "comprovante.jpg").replace(/[^a-zA-Z0-9._-]/g, "-");
     const receiptType = String(receipt?.mime_type || "application/octet-stream");

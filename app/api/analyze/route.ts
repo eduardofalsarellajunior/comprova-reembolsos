@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { expenseSchema } from "@/lib/expenses";
 import { createServerSupabase, getBearerToken } from "@/lib/server-auth";
+import { DOCUMENTS_BUCKET } from "@/lib/supabase/config";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
   await supabase.from("receipts").update({ status: "processing", error_message: null, updated_at: new Date().toISOString() }).eq("id", receipt.id);
 
   try {
-    const { data: fileBlob, error: downloadError } = await supabase.storage.from("receipts").download(receipt.storage_path);
+    const { data: fileBlob, error: downloadError } = await supabase.storage.from(DOCUMENTS_BUCKET).download(receipt.storage_path);
     if (downloadError || !fileBlob) throw new Error("Não foi possível abrir o arquivo armazenado.");
     const dataUrl = `data:${receipt.mime_type};base64,${Buffer.from(await fileBlob.arrayBuffer()).toString("base64")}`;
     const documentInput = receipt.mime_type === "application/pdf"

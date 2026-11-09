@@ -117,11 +117,51 @@ footer p { margin:0; }
 .authCard { width:min(430px,100%); margin:auto; padding:38px; border:1px solid var(--line); border-radius:20px; background:rgba(255,255,255,.9); box-shadow:0 30px 80px rgba(38,78,64,.12); }
 .authCard h2 { margin:34px 0 7px; font-size:29px; letter-spacing:-1px; }
 .authCard>p { margin:0 0 26px; color:var(--muted); font-size:13px; line-height:1.5; }
+.officeButton { width:100%; display:flex; align-items:center; justify-content:center; gap:10px; border:1px solid #b8c9c2; border-radius:9px; padding:13px; background:var(--ink); color:white; font-size:12px; font-weight:900; }
+.officeButton:hover:not(:disabled) { background:var(--green); }
+.officeButton:disabled { opacity:.6; cursor:wait; }
+.officeLogo { width:20px; height:20px; display:grid; place-items:center; border-radius:4px; background:#fff; color:#2677d4; font-size:15px; line-height:1; }
+.authDivider { display:flex; align-items:center; gap:10px; margin:19px 0 4px; color:#87938d; font-size:10px; text-transform:uppercase; letter-spacing:.8px; }
+.authDivider:before,.authDivider:after { content:""; height:1px; flex:1; background:var(--line); }
 .authCard label { display:block; margin:14px 0 6px; color:var(--ink); font-size:10px; font-weight:900; letter-spacing:.9px; text-transform:uppercase; }
 .authCard>input { width:100%; border:1px solid #bfc9c4; border-radius:9px; padding:13px; background:white; color:var(--ink); }
 .authCard>input:focus { outline:2px solid var(--lime); border-color:var(--green); }
 .authNotice { margin-top:15px; padding:11px 13px; border-radius:8px; background:#eef7f2; color:var(--green); font-size:12px; line-height:1.45; }
 .authSwitch { width:100%; margin-top:18px; border:0; background:transparent; color:var(--green); font-size:11px; font-weight:800; text-decoration:underline; }
+.reportWorkspace { min-height:calc(100vh - 76px); }
+.reportGrid { max-width:1200px; margin:0 auto 22px; display:grid; grid-template-columns:1fr 1.25fr; gap:16px; }
+.reportCard { max-width:1200px; margin:0 auto 18px; padding:22px; border:1px solid #d9d9d2; border-radius:14px; background:white; box-shadow:0 14px 40px rgba(38,52,45,.05); }
+.reportGrid .reportCard { width:100%; margin:0; }
+.reportCard h3 { margin:0 0 16px; font-size:19px; letter-spacing:-.5px; }
+.reportCard h4 { margin:24px 0 10px; font-size:14px; }
+.reportCard label { display:block; margin:12px 0; color:var(--ink); font-size:10px; font-weight:900; letter-spacing:.8px; text-transform:uppercase; }
+.reportCard input,.reportCard textarea { width:100%; margin-top:7px; border:1px solid #bfc9c4; border-radius:9px; padding:11px; background:white; color:var(--ink); font-size:12px; letter-spacing:0; text-transform:none; }
+.reportCard textarea { min-height:90px; resize:vertical; }
+.reportCard input:focus,.reportCard textarea:focus { outline:2px solid var(--lime); border-color:var(--green); }
+.reportList { display:flex; flex-direction:column; gap:7px; max-height:280px; overflow:auto; }
+.reportListItem { width:100%; display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px; border:1px solid var(--line); border-radius:9px; background:white; color:var(--ink); text-align:left; }
+.reportListItem.selected { border-color:var(--green); background:#f3faf6; }
+.reportListItem span { min-width:0; display:flex; flex-direction:column; gap:4px; }
+.reportListItem strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px; }
+.reportListItem small,.muted { color:var(--muted); font-size:11px; }
+.reportListItem b { color:var(--green); font-size:20px; }
+.reportNotice { margin:0 auto 18px; }
+.reportDetailHeader { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; }
+.reportDetailHeader h3 { margin-bottom:5px; }
+.reportDetailHeader p { margin:0; color:var(--muted); font-size:12px; }
+.selectExpenseList { display:flex; flex-direction:column; gap:6px; max-height:360px; overflow:auto; }
+.selectExpense { display:flex!important; align-items:flex-start; gap:10px; margin:0!important; padding:12px; border:1px solid var(--line); border-radius:9px; text-transform:none!important; letter-spacing:0!important; font-weight:500!important; }
+.selectExpense:hover { border-color:var(--green); background:#f8fcf9; }
+.selectExpense input { width:auto; margin:3px 0 0; accent-color:var(--green); }
+.selectExpense span { display:flex; flex-direction:column; gap:4px; }
+.selectExpense strong { font-size:12px; }
+.selectExpense small { color:var(--muted); font-size:11px; font-weight:500; }
+.compactForm { display:grid; gap:8px; margin-top:14px; }
+.compactForm input,.compactForm select { width:100%; margin-top:0; border:1px solid #bfc9c4; border-radius:9px; padding:10px; background:white; color:var(--ink); font-size:12px; }
+.compactForm button { justify-self:start; }
+.statusLine { color:var(--muted); font-size:12px; }
+.errorText { color:#ad3b2b; font-size:12px; }
+.mappingList { display:grid; gap:4px; margin-top:12px; color:var(--muted); }
 .modalBackdrop { position:fixed; inset:0; z-index:50; display:grid; place-items:center; padding:20px; background:rgba(13,30,24,.58); backdrop-filter:blur(5px); }
 .modal { position:relative; width:min(470px,100%); border-radius:20px; background:var(--paper); padding:38px; box-shadow:0 30px 90px rgba(0,0,0,.28); }
 .modalClose { position:absolute; right:18px; top:15px; border:0; background:transparent; color:var(--muted); font-size:25px; }
@@ -173,4 +213,7 @@ footer p { margin:0; }
   .authShell { grid-template-columns:1fr; padding:35px 5vw; }
   .authIntro { display:none; }
   .authCard { padding:30px 23px; }
+  .reportGrid { grid-template-columns:1fr; }
+  .reportDetailHeader { flex-direction:column; }
+  .reportDetailHeader .actions { width:100%; }
 }
