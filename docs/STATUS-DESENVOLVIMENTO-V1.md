@@ -16,7 +16,7 @@
 
 ## Configuração obrigatória antes do Preview
 
-1. No Supabase destino, adicionar `comprova` em **Settings > API > Exposed schemas**.
+1. A configuração efetiva do papel `authenticator` já inclui `comprova`, preservando os quatro schemas existentes. Ainda é necessário validar a Data API no Preview com login real.
 2. Confirmar que `comprova-documents`, `comprova-uploads` e `comprova-recordings` continuam privados.
 3. Configurar no servidor as variáveis do `.env.example`.
 4. No Supabase Auth, habilitar o provedor Azure e cadastrar os callbacks do Preview e produção.
@@ -32,6 +32,7 @@
 - O lint e o build local não conseguiram ler dependências armazenadas como reparse points do OneDrive (`UNKNOWN: unknown error, read`). O `tsc --noEmit` passou sem erros depois das correções.
 - A branch de Preview foi enviada ao GitHub e compilada na Vercel; o corte de produção não foi executado.
 - A migração `20261106180000_comprova_sync_jobs_owner_guard.sql` foi aplicada e verificada no Supabase destino em 09/11/2026.
+- A migração `20261110131219_expose_comprova_in_existing_authenticator_schemas.sql` acrescentou `comprova` à configuração existente de `pgrst.db_schemas` em 10/11/2026, sem usar **Reset override**. A leitura SQL confirmou a lista final; o teste HTTP externo da Data API ficou pendente por restrição de rede neste ambiente.
 - A exportação financeira não está pronta para produção: a fila pode reenviar despesas em uma tentativa posterior, e a reconciliação ainda não compara os registros externos. Não ativar o cron nem lançar despesas reais na Conta Azul antes de corrigir e testar esses casos.
 
 ## Próxima execução autorizada
