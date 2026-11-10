@@ -27,9 +27,10 @@
 
 ## Limitações conhecidas
 
+- A branch `codex/comprova-v1-preview` foi publicada para teste, mas a produção ainda usa a versão anterior. O Preview não deve ser usado para lançar despesas reais.
 - O script de Storage está pronto, mas a cópia dos 26 arquivos não foi executada porque a conexão administrativa do projeto de origem recusou autenticação. O banco destino já contém os 26 registros e 21 despesas.
 - O lint e o build local não conseguiram ler dependências armazenadas como reparse points do OneDrive (`UNKNOWN: unknown error, read`). O `tsc --noEmit` passou sem erros depois das correções.
-- A publicação na Vercel, push para GitHub e corte de produção não foram executados.
+- A branch de Preview foi enviada ao GitHub e compilada na Vercel; o corte de produção não foi executado.
 - A migração `20261106180000_comprova_sync_jobs_owner_guard.sql` foi aplicada e verificada no Supabase destino em 09/11/2026.
 - A exportação financeira não está pronta para produção: a fila pode reenviar despesas em uma tentativa posterior, e a reconciliação ainda não compara os registros externos. Não ativar o cron nem lançar despesas reais na Conta Azul antes de corrigir e testar esses casos.
 
