@@ -8,12 +8,12 @@ function sameSignature(received: string, expected: string) {
   return timingSafeEqual(Buffer.from(received, "utf8"), Buffer.from(expected, "utf8"));
 }
 
-export async function GET(request: Request, context: { params: Promise<{ filename: string }> }) {
+export async function GET(request: Request, context: { params: Promise<{ token: string }> }) {
   const token = process.env.VEXPENSES_API_TOKEN;
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   if (!token || !supabaseUrl) return new NextResponse("Indisponível", { status: 503 });
 
-  const { filename } = await context.params;
+  const { token: filename } = await context.params;
   const url = new URL(request.url);
   const source = url.searchParams.get("source") || "";
   const type = url.searchParams.get("type") || "application/octet-stream";

@@ -36,7 +36,7 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   const { id: reportId } = await context.params;
   const body = await request.json().catch(() => null) as { expenseId?: string } | null;
   if (!body?.expenseId) return NextResponse.json({ error: "Despesa não informada." }, { status: 400 });
-  const { error } = await supabase.from("report_expenses").delete().eq("report_id", reportId).eq("expense_id", body.expenseId);
-  if (error) return NextResponse.json({ error: "Não foi possível retirar a despesa." }, { status: 409 });
+  const { data, error } = await supabase.from("report_expenses").delete().eq("report_id", reportId).eq("expense_id", body.expenseId).select("expense_id");
+  if (error || !data?.length) return NextResponse.json({ error: "Não foi possível retirar a despesa. Confira se o relatório ainda está aberto." }, { status: 409 });
   return NextResponse.json({ ok: true });
 }

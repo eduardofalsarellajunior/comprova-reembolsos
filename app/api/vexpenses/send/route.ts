@@ -23,9 +23,12 @@ export async function POST(request: Request) {
   const { data: expense, error: expenseError } = await supabase.from("expenses").select("*, receipts!inner(storage_path, file_name, mime_type)").eq("id", body.expenseId).eq("user_id", authData.user.id).single();
   if (expenseError || !expense) return NextResponse.json({ error: "Despesa não encontrada." }, { status: 404 });
   if (expense.vexpenses_status === "sent") return NextResponse.json({ error: "Esta despesa já foi enviada para a VExpenses." }, { status: 409 });
+  if (expense.vexpenses_status === "sending") return NextResponse.json({ error: "O envio já está em andamento ou aguarda conferência na VExpenses." }, { status: 409 });
   if (!expense.expense_date || expense.amount === null || Number(expense.amount) <= 0) return NextResponse.json({ error: "Confira a data e o valor antes de enviar." }, { status: 400 });
 
-  await supabase.from("expenses").update({ vexpenses_status: "sending", vexpenses_error: null }).eq("id", expense.id);
+  const { data: claimed, error: claimError } = await supabase.from("expenses").update({ vexpenses_status: "sending", vexpenses_error: null }).eq("id", expense.id).in("vexpenses_status", ["not_sent", "error"]).select("id").maybeSingle();
+  if (claimError || !claimed) return NextResponse.json({ error: "A despesa está bloqueada ou já existe um envio em andamento." }, { status: 409 });
+  let externalRequestStarted = false;
   try {
     const member = await getMemberByEmail(authData.user.email);
     const [types, reports] = await Promise.all([getExpenseTypes(), getReports(member.id)]);
@@ -53,17 +56,21 @@ export async function POST(request: Request) {
       reimbursable: true,
     });
     const payload = { user_id: member.id, external_id: expense.id, expense_type_id: expenseTypeId, ...(report.paymentMethodId ? { payment_method_id: report.paymentMethodId } : {}), paying_company_id: report.payingCompanyId || member.companyId, receipt_url: receiptProxyUrl.toString(), reicept_url: receiptProxyUrl.toString(), date: expense.expense_date, value: Number(expense.amount), report_id: reportId, title, validate: "", observation: String(expense.notes || ""), reimbursable: true, original_currency_iso: expense.currency || "BRL" };
+    externalRequestStarted = true;
     const result = await vexpensesFetch("/expenses", { method: "POST", body: JSON.stringify(payload) });
     const created = dataItems(result)[0] || asRecord(result);
     const createdId = Number(created?.id);
     if (!Number.isFinite(createdId) || createdId <= 0) throw new VexpensesApiError("A VExpenses criou a despesa, mas não informou o ID.");
     const sentAt = new Date().toISOString();
-    const { error: updateError } = await supabase.from("expenses").update({ vexpenses_status: "sent", vexpenses_expense_id: createdId, vexpenses_report_id: reportId, vexpenses_error: null, vexpenses_sent_at: sentAt }).eq("id", expense.id);
-    if (updateError) throw new VexpensesApiError("A despesa foi enviada, mas o histórico local não pôde ser atualizado.");
+    const { data: saved, error: updateError } = await supabase.from("expenses").update({ vexpenses_status: "sent", vexpenses_expense_id: createdId, vexpenses_report_id: reportId, vexpenses_error: null, vexpenses_sent_at: sentAt }).eq("id", expense.id).eq("vexpenses_status", "sending").select("id").maybeSingle();
+    if (updateError || !saved) throw new VexpensesApiError("A despesa foi enviada, mas o histórico local não pôde ser atualizado.");
     return NextResponse.json({ expenseId: Number.isFinite(createdId) ? createdId : null, reportId, sentAt });
   } catch (cause) {
     const error = cause instanceof VexpensesApiError ? cause : new VexpensesApiError("Não foi possível enviar a despesa para a VExpenses.");
-    await supabase.from("expenses").update({ vexpenses_status: "error", vexpenses_error: error.message }).eq("id", expense.id);
+    if (externalRequestStarted && (error.status >= 500 || error.status === 408)) {
+      return NextResponse.json({ error: "O envio não pôde ser confirmado. Confira na VExpenses antes de tentar de novo." }, { status: 409 });
+    }
+    await supabase.from("expenses").update({ vexpenses_status: "error", vexpenses_error: error.message }).eq("id", expense.id).eq("vexpenses_status", "sending");
     return NextResponse.json({ error: error.message }, { status: error.status });
   }
 }

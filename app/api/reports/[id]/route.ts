@@ -26,9 +26,13 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   const { id } = await context.params;
   const body = await request.json().catch(() => null) as Record<string, unknown> | null;
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  for (const [from, to] of [["name", "name"], ["description", "description"], ["periodStart", "period_start"], ["periodEnd", "period_end"], ["status", "status"], ["rejectionReason", "rejection_reason"]]) {
+  for (const [from, to] of [["name", "name"], ["description", "description"], ["periodStart", "period_start"], ["periodEnd", "period_end"], ["costCenterId", "cost_center_id"], ["projectId", "project_id"], ["paymentMethodId", "payment_method_id"], ["approvalFlowId", "approval_flow_id"], ["notes", "notes"]]) {
     if (body && from in body) update[to] = body[from];
   }
+  if (typeof update.name === "string" && !update.name.trim()) return NextResponse.json({ error: "Informe o nome do relatório." }, { status: 400 });
+  const { data: current } = await supabase.from("reports").select("period_start,period_end,status").eq("id", id).eq("owner_id", user.id).single();
+  if (!current || !["draft", "rejected"].includes(current.status)) return NextResponse.json({ error: "O relatório não está aberto para edição." }, { status: 409 });
+  if (String(update.period_start ?? current.period_start ?? "") && String(update.period_end ?? current.period_end ?? "") && String(update.period_start ?? current.period_start) > String(update.period_end ?? current.period_end)) return NextResponse.json({ error: "A data inicial deve ser anterior à data final." }, { status: 400 });
   const { data, error } = await supabase.from("reports").update(update).eq("id", id).eq("owner_id", user.id).select().single();
   if (error || !data) return NextResponse.json({ error: "Não foi possível atualizar o relatório. Verifique se ele ainda está sob sua edição." }, { status: 409 });
   await supabase.from("audit_events").insert({ actor_user_id: user.id, entity_type: "report", entity_id: id, action: "updated", metadata: { fields: Object.keys(update) } });
@@ -39,8 +43,8 @@ export async function DELETE(request: Request, context: { params: Promise<{ id: 
   const { supabase, user } = await getContext(request);
   if (!supabase || !user) return NextResponse.json({ error: "Sessão inválida." }, { status: 401 });
   const { id } = await context.params;
-  const { error } = await supabase.from("reports").delete().eq("id", id).eq("owner_id", user.id);
-  if (error) return NextResponse.json({ error: "Só relatórios em rascunho, rejeitados ou cancelados podem ser excluídos." }, { status: 409 });
+  const { data, error } = await supabase.from("reports").delete().eq("id", id).eq("owner_id", user.id).select("id");
+  if (error || !data?.length) return NextResponse.json({ error: "Só rascunhos nunca enviados para aprovação podem ser excluídos." }, { status: 409 });
   await supabase.from("audit_events").insert({ actor_user_id: user.id, entity_type: "report", entity_id: id, action: "deleted", metadata: {} });
   return NextResponse.json({ ok: true });
 }

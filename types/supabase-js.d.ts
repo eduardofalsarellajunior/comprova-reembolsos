@@ -14,6 +14,7 @@ declare module "@supabase/supabase-js" {
       onAuthStateChange(callback: (event: string, session: SupabaseSession | null) => void): { data: { subscription: { unsubscribe(): void } } };
     };
     from(table: string): any;
+    rpc<T = unknown>(name: string, args?: Record<string, unknown>): Promise<SupabaseResult<T>>;
     storage: { from(bucket: string): any };
   };
 

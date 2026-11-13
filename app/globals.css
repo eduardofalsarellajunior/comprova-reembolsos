@@ -162,6 +162,49 @@ footer p { margin:0; }
 .statusLine { color:var(--muted); font-size:12px; }
 .errorText { color:#ad3b2b; font-size:12px; }
 .mappingList { display:grid; gap:4px; margin-top:12px; color:var(--muted); }
+.reportWorkspace .resultsHeader h1 { margin:8px 0 6px; font-size:clamp(30px,3.5vw,48px); line-height:1.05; letter-spacing:-1.8px; }
+.reportWorkspace .resultsHeader p { color:var(--muted); }
+.reportCard h2 { margin:0 0 12px; font-size:22px; letter-spacing:-.7px; }
+.reportCard h3 { margin:25px 0 12px; }
+.reportCard select { width:100%; margin-top:7px; border:1px solid #bfc9c4; border-radius:9px; padding:11px; background:white; color:var(--ink); font-size:12px; }
+.reportCard input:disabled,.reportCard textarea:disabled,.reportCard select:disabled { background:#f4f5f1; color:#596862; cursor:not-allowed; }
+.reportCard .reportListItem button { flex:none; border:1px solid var(--line); border-radius:7px; padding:7px 10px; background:#f8faf7; color:var(--green); font-size:10px; font-weight:800; }
+.settingsGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:0 16px; }
+.settingsGrid .wideField { grid-column:1/-1; }
+.settingsChecks { display:flex; flex-wrap:wrap; gap:10px 24px; margin:8px 0 20px; }
+.settingsChecks label { display:flex; align-items:center; gap:7px; margin:0; font-size:11px; text-transform:none; letter-spacing:0; }
+.settingsChecks input { width:auto; margin:0; accent-color:var(--green); }
+.workspaceSelector { max-width:1200px; margin:0 auto 20px; display:flex; align-items:center; gap:10px; font-size:12px; font-weight:800; }
+.workspaceSelector select { min-width:200px; border:1px solid var(--line); border-radius:8px; padding:10px; background:white; color:var(--ink); }
+.workspaceSelector span { color:var(--green); font-size:11px; }
+.flowStep { display:grid; grid-template-columns:70px 1fr auto; align-items:center; gap:8px; }
+.flowStep span { color:var(--muted); font-size:11px; }
+.flowStep select { margin:0; }
+.reportFilters { display:grid; grid-template-columns:1fr 150px; gap:8px; margin-bottom:12px; }
+.reportFilters input,.reportFilters select { margin:0; }
+.statusBadge { display:inline-block; margin-bottom:8px; padding:5px 9px; border-radius:20px; background:#e4f2ea; color:var(--green); font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.7px; }
+.status-rejected { background:#fcebe7; color:#9a4432; }
+.status-submitted { background:#fff2cc; color:#745500; }
+.status-paid { background:#e7edf9; color:#385890; }
+.warningBox { padding:12px 14px; border:1px solid #e6c6a0; border-radius:9px; background:#fff7e8; color:#704b17; font-size:12px; }
+.reportExpenseList { display:grid; gap:7px; margin-bottom:18px; }
+.reportExpenseRow { display:grid; grid-template-columns:minmax(130px,1.5fr) minmax(100px,1fr) 110px 100px 90px auto; align-items:center; gap:10px; padding:12px; border:1px solid var(--line); border-radius:9px; font-size:11px; }
+.reportExpenseRow strong { white-space:nowrap; text-align:right; }
+.reportExpenseRow>button:last-child { border:1px solid #d8a8a0; border-radius:7px; padding:6px 8px; background:#fff6f4; color:#9a4432; }
+.fileLink { border:0; padding:0; background:transparent; color:var(--green); font-size:11px; font-weight:800; text-align:left; text-decoration:underline; overflow-wrap:anywhere; }
+.approvalTabs { max-width:1200px; display:flex; gap:8px; margin:0 auto 17px; overflow-x:auto; }
+.approvalTabs button { border:1px solid var(--line); border-radius:9px; padding:10px 14px; background:white; color:var(--ink); white-space:nowrap; font-size:11px; font-weight:800; }
+.approvalTabs button.selected { border-color:var(--green); background:var(--green); color:white; }
+.approvalExpense { display:grid; gap:4px; padding:11px 0; border-top:1px solid var(--line); }
+.approvalExpense small,.approvalExpense p { color:var(--muted); font-size:11px; }
+.approvalExpense p { margin:0; }
+.decisionPanel { padding-top:14px; border-top:1px solid var(--line); }
+.decisionPanel .actions { display:flex; justify-content:flex-end; }
+.reportDetail { border-top:3px solid var(--company-accent, var(--green)); }
+.rowActions { display:flex; flex-wrap:wrap; gap:6px; }
+.manualExpenseForm { margin-top:18px; padding:0 16px 16px; border:1px solid var(--line); border-radius:9px; }
+.reportCard .inlineCheck { display:flex; gap:8px; align-items:center; }
+.reportCard .inlineCheck input { width:auto; margin:0; accent-color:var(--green); }
 .modalBackdrop { position:fixed; inset:0; z-index:50; display:grid; place-items:center; padding:20px; background:rgba(13,30,24,.58); backdrop-filter:blur(5px); }
 .modal { position:relative; width:min(470px,100%); border-radius:20px; background:var(--paper); padding:38px; box-shadow:0 30px 90px rgba(0,0,0,.28); }
 .modalClose { position:absolute; right:18px; top:15px; border:0; background:transparent; color:var(--muted); font-size:25px; }
@@ -216,4 +259,11 @@ footer p { margin:0; }
   .reportGrid { grid-template-columns:1fr; }
   .reportDetailHeader { flex-direction:column; }
   .reportDetailHeader .actions { width:100%; }
+  .topbar { min-height:64px; height:auto; flex-wrap:wrap; gap:8px; padding-top:8px; padding-bottom:8px; }
+  .topbar .topActions { flex-wrap:wrap; justify-content:flex-end; }
+  .settingsGrid,.reportFilters { grid-template-columns:1fr; }
+  .reportExpenseRow { grid-template-columns:1fr 1fr; }
+  .reportExpenseRow .fileLink { grid-column:1/-1; }
+  .reportExpenseRow strong { text-align:left; }
+  .flowStep { grid-template-columns:1fr; }
 }

@@ -114,7 +114,7 @@ export default function Home() {
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user);
       setAuthLoading(false);
-      if (data.user) { loadHistory(); loadVexpensesContext(); }
+      if (data.user) { loadHistory(data.user.id); loadVexpensesContext(); }
     });
     const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user ?? null));
     return () => listener.subscription.unsubscribe();
@@ -124,11 +124,12 @@ export default function Home() {
 
   const total = useMemo(() => expenses.reduce((sum, row) => sum + (row.amount || 0), 0), [expenses]);
 
-  async function loadHistory() {
+  async function loadHistory(userId: string) {
     setHistoryLoading(true);
     const { data, error } = await supabase
       .from("expenses")
       .select("*, receipts!inner(file_name, storage_path)")
+      .eq("user_id", userId)
       .order("created_at", { ascending: false });
     if (error) setNotice("Não foi possível carregar o histórico.");
     else setExpenses(((data || []) as ExpenseRow[]).map((row) => mapExpense(row, row.receipts!)));
@@ -142,7 +143,7 @@ export default function Home() {
     if (authMode === "login") {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) setNotice(error.message === "Invalid login credentials" ? "E-mail ou senha incorretos." : error.message);
-      else if (data.user) { setUser(data.user); await Promise.all([loadHistory(), loadVexpensesContext()]); }
+      else if (data.user) { setUser(data.user); await Promise.all([loadHistory(data.user.id), loadVexpensesContext()]); }
     } else {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -150,7 +151,7 @@ export default function Home() {
         options: { emailRedirectTo: window.location.origin },
       });
       if (error) setNotice(error.message);
-      else if (data.session && data.user) { setUser(data.user); await Promise.all([loadHistory(), loadVexpensesContext()]); }
+      else if (data.session && data.user) { setUser(data.user); await Promise.all([loadHistory(data.user.id), loadVexpensesContext()]); }
       else setNotice("Cadastro realizado. Confira seu e-mail para confirmar a conta e depois entre no sistema.");
     }
     setAuthBusy(false);
@@ -410,7 +411,7 @@ export default function Home() {
   }
 
   async function saveExpense(row: Expense) {
-    const { error } = await supabase.from("expenses").update({
+    const { data, error } = await supabase.from("expenses").update({
       supplier: row.supplier,
       expense_date: row.date || null,
       amount: row.amount,
@@ -419,14 +420,15 @@ export default function Home() {
       description: row.description,
       notes: row.notes,
       updated_at: new Date().toISOString(),
-    }).eq("id", row.id);
-    setNotice(error ? "Não foi possível salvar a alteração." : "Alteração salva no histórico.");
+    }).eq("id", row.id).select("id");
+    if (error || !data?.length) { if (user) await loadHistory(user.id); setNotice("Esta despesa está bloqueada por um relatório enviado ou não pôde ser salva."); }
+    else setNotice("Alteração salva no histórico.");
   }
 
   async function deleteExpense(row: Expense) {
     const sameReceipt = expenses.filter((item) => item.receiptId === row.receiptId).length;
-    const { error } = await supabase.from("expenses").delete().eq("id", row.id);
-    if (error) { setNotice("Não foi possível excluir esta despesa."); return; }
+    const { data, error } = await supabase.from("expenses").delete().eq("id", row.id).select("id");
+    if (error || !data?.length) { setNotice("Retire a despesa do relatório antes de excluí-la."); return; }
     setExpenses((current) => current.filter((item) => item.id !== row.id));
     if (sameReceipt === 1) {
       await supabase.storage.from(DOCUMENTS_BUCKET).remove([row.storagePath]);
@@ -444,9 +446,16 @@ export default function Home() {
     const expenseIds = expenses.map((row) => row.id);
     const receiptIds = Array.from(new Set(expenses.map((row) => row.receiptId)));
     const storagePaths = Array.from(new Set(expenses.map((row) => row.storagePath).filter(Boolean)));
-    const { error } = await supabase.from("expenses").delete().in("id", expenseIds);
-    if (error) {
-      setNotice("Não foi possível limpar os comprovantes.");
+    const { data: linked, error: linkedError } = await supabase.from("report_expenses").select("expense_id").in("expense_id", expenseIds);
+    if (linkedError || linked?.length) {
+      setNotice("Retire primeiro as despesas dos relatórios antes de limpar os comprovantes.");
+      setHistoryLoading(false);
+      return;
+    }
+    const { data: deleted, error } = await supabase.from("expenses").delete().in("id", expenseIds).select("id");
+    if (error || deleted?.length !== expenseIds.length) {
+      if (user) await loadHistory(user.id);
+      setNotice("Nem todas as despesas puderam ser excluídas. O histórico foi atualizado.");
       setHistoryLoading(false);
       return;
     }
@@ -513,7 +522,7 @@ export default function Home() {
     <main>
       <header className="topbar">
         <a className="brand" href="#inicio" aria-label="Comprova início"><span className="brandMark">C</span><span>comprova</span></a>
-        <div className="topActions"><span className="privacy"><span className="privacyDot" /> Arquivos privados e histórico protegido</span><a className="settingsButton" href="/relatorios">Relatórios</a><button className="settingsButton" onClick={linkOffice365} disabled={authBusy}>Vincular Office 365</button><span className="userEmail">{user.email}</span><button className="settingsButton" onClick={signOut}>Sair</button></div>
+        <div className="topActions"><span className="privacy"><span className="privacyDot" /> Arquivos privados e histórico protegido</span><a className="settingsButton" href="/relatorios">Relatórios</a><a className="settingsButton" href="/aprovacoes">Aprovações</a><a className="settingsButton" href="/empresa">Empresa</a><button className="settingsButton" onClick={linkOffice365} disabled={authBusy}>Vincular Office 365</button><span className="userEmail">{user.email}</span><button className="settingsButton" onClick={signOut}>Sair</button></div>
       </header>
 
       <section className="hero" id="inicio">
