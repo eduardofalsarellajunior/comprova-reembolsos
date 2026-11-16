@@ -1,0 +1,55 @@
+# COMPROVA — histórico técnico
+
+Histórico cronológico e cumulativo. Datas de referência em **America/Sao_Paulo**; datas de commits abaixo vêm do histórico Git. A base inicial foi reconstruída a partir do repositório e do histórico de trabalho disponível nesta conta. Não inventar resultados antigos; futuras correções devem ser acrescentadas como novas entradas.
+
+## 2026-08-03 a 2026-08-04 — Leitor, publicação e conta
+
+- **Evidência Git:** `e495a88` leitor em lote; `d42b3f5` configuração privada da IA; `2d719d2` correção para comprovantes grandes; `97ca8fb` adaptação à Vercel; `a7bb906` abertura de comprovante; `ce77863` login e histórico privado.
+- **Decisão:** leitura e integração pelo servidor com credenciais fora do navegador. Comprovantes devem ficar privados.
+- **Limite:** o histórico Git mostra as mudanças, não o resultado dos testes de cada commit.
+
+## 2026-08-23 a 2026-10-25 — VExpenses e conferência
+
+- **Evidência Git:** evoluções da preparação e do envio em agosto, incluindo `6da1600` e `1396c35`; modo assistido `f29ea8b`, pacote de lançamento `adac855`, limpeza `ba59c87` e download em lote `a20abfb`.
+- **Decisão:** manter alternativa assistida para conferência/anexo; não aprovar relatório externo automaticamente. Não inferir que a integração está operacional em todas as contas.
+- **Testes:** não reexecutados nesta inicialização documental. Instruções e artefatos locais da automação VExpenses não fazem parte desta entrega.
+
+## 2026-11-09 a 2026-11-10 — Supabase compartilhado
+
+- **Evidência Git:** `56fc5c8` estrutura da V1, `b04cd8f` estado do Preview e `49e5dae` exposição de `comprova` preservando os schemas já configurados. Migrations em `supabase/migrations` e contexto em `docs/STATUS-DESENVOLVIMENTO-V1.md`.
+- **Decisão:** schema e buckets exclusivos, RLS e nenhum reset global do override. O projeto de origem não deveria sofrer exclusões; descarte autorizado dos dados importados ocorreu no destino conforme histórico anterior. Não presumir que linhas e arquivos do legado foram copiados.
+- **Problemas registrados:** Preview antigo apontava para o Supabase real; não reutilizar sem verificar. OneDrive dificultou leitura de dependências e build local; usar QA descartável fora da pasta sincronizada se ocorrer novamente.
+
+## 2026-11-13 — Gestão de reembolsos por empresa concluída localmente
+
+- **Evidência Git:** commit `477aecf`. Mudanças em páginas de empresa, relatórios e aprovações, APIs, RLS/Storage, funções de transição, migrations `20261112120000` e `20261112123000`; ver também `docs/OPERACAO-REEMBOLSOS.md` e testes da versão.
+- **Decisões:** aprovação sequencial com motivo de rejeição, recuperação por reenvio ou retirada, registro de pagamento sem movimentação de dinheiro, rota de aprovação por centro de custo com precedência sobre o padrão. Conta Azul fora da publicação.
+- **Testes registrados na execução anterior:** build Next com TypeScript e smoke HTTP local, e suíte PGlite cobrindo ciclo de reembolso, funções com autenticação e isolamento. Não equivalem a um ciclo completo com usuários reais.
+
+## 2026-11-16 — Publicação da gestão de reembolsos
+
+- **Ambiente e evidência anterior:** após autorização específica de produção, as migrations de configuração de empresa e aprovação segura foram aplicadas ao Supabase `xammlyxakxrysjrzdbeq`; no histórico remoto foram registradas como `20261116174949 / comprova_company_configuration` e `20261116175019 / comprova_secure_approvals`. São as mesmas mudanças versionadas no repositório com os prefixos `20261112120000` e `20261112123000`.
+- **Release:** `main` passou de `49e5dae` a `477aecf`; deploy de produção `dpl_Egrw7WncJf6xZoapmVBo2Wm9wMUx` ficou READY. Contagem registrada: sete novas tabelas com RLS, cinco RPCs do fluxo executáveis pelo autenticado e não pelo anônimo, três buckets privados.
+- **Validação anterior:** HTTP 200 em `/`, `/empresa`, `/relatorios` e `/aprovacoes`; 401 em `/api/reports` sem login. Sem erros de runtime no intervalo consultado naquele deploy; não generalizar para hoje. Ciclo com usuários reais não foi executado.
+- **Rollback:** não reverter só o app após colaboração sem revisar compatibilidade e visibilidade dos dados; não remover dados de aprovação.
+
+## 2026-11-16 — Configurações, membros e organograma, só no checkout Local
+
+- **Base:** `477aecf`, branch local `codex/comprova-v1-preview`. Implementados menu de 18 itens, área pessoal, gestão de papéis e organograma, cadastro de política de quilometragem e carga INEPAD. Arquivos exatos em [PROJECT_CHECKPOINT.md](PROJECT_CHECKPOINT.md).
+- **Decisões:** cargo não determina permissão; classificação valida empresa e departamento; exclusão de cargo/departamento vinculado é protegida; carga sem duplicar, com 8/6/9 cargos. Consulta anterior, somente leitura, identificou uma organização com nome `INEPAD LTDA`; verificar novamente antes de uma futura aplicação.
+- **Testes registrados na execução anterior:** TypeScript e ESLint focado; build `next build --webpack` em QA descartável; `node --test tests/rendered-html.test.mjs`, `node --test tests/company-workflow.postgres.mjs` e `node --test tests/settings-navigation.test.mjs` passaram. A suíte de banco usou PGlite 0.5.16, não o banco real.
+- **Pendências:** sem commit, push, deploy ou aplicação da nova migration. Notificações e quilometragem automatizada não foram implementadas.
+
+## 2026-11-16 — Protocolo de continuidade entre contas
+
+- **Ambiente e base verificados nesta tarefa:** Windows/PowerShell, checkout principal Local do COMPROVA, HEAD `477aecf` em `codex/comprova-v1-preview`. GitHub confirmou `main` em `477aecf` e Preview em `49e5dae` por `git ls-remote` com acesso autorizado à rede. A sessão abriu inicialmente na pasta de outro projeto; as verificações e edições do COMPROVA usaram a raiz explícita. Nenhum worktree adicional apareceu em `git worktree list --porcelain`.
+- **Arquivos:** `AGENTS.md`, `PROJECT_STATUS.md`, `PROJECT_LOG.md` e `PROJECT_CHECKPOINT.md`. Não existiam no checkout inicial. Nenhuma funcionalidade ou configuração da aplicação é alterada por esta tarefa.
+- **Verificações:** os quatro Markdown existem e os 17 links relativos apontam para arquivos presentes. `git diff --check` terminou sem erros; em arquivos preexistentes, o Git só alertou sobre futura conversão de LF para CRLF. O índice continuou vazio e o HEAD permaneceu em `477aecf`. Nenhum build, teste de aplicação, acesso ao banco ou mudança em Vercel foi executado para este handoff documental; os testes acima são resultados anteriores.
+- **Pendência:** definir com o usuário o que será transferido e autorizar a publicação na branch de handoff adequada. Antes do envio, verificar deploy automático e excluir arquivos privados.
+
+## 2026-11-16 — Transferência aprovada: escopo documental
+
+- **Decisão:** após a autorização para prosseguir, o escopo foi limitado aos quatro documentos. Configurações, sua migration, comprovantes e mudanças anteriores permanecem no checkout de origem. O handoff não autoriza merge, implantação nem migrações.
+- **Base e isolamento:** GitHub confirmou `main` em `477aecfa6563e8e6692ce0624133a7be6ad370ac` e a ausência de `codex/comprova-handoff` antes da preparação. A branch é preparada numa cópia Git separada, sem trocar de branch nem alterar o índice na pasta principal.
+- **Vercel:** a base não contém workflow do GitHub e o `vercel.json` original não tem regras de branch. A branch de transferência inclui `git.deploymentEnabled` com valor `false` apenas para `codex/comprova-handoff`, conforme a [referência oficial](https://vercel.com/docs/project-configuration/git-configuration#gitdeploymentenabled). Não há ajuste no painel da Vercel.
+- **Verificação de entrega:** depois do push, a origem deve verificar o SHA remoto e confirmar a ausência de deploy dessa referência. Na conta de destino, siga o [checkpoint](PROJECT_CHECKPOINT.md) sem pressupor acesso a arquivos ou chats locais da origem.
