@@ -5,7 +5,7 @@ param(
   [Parameter(Mandatory = $true)]
   [ValidatePattern('^(absent|[0-9a-f]{40})$')]
   [string]$ExpectedRemoteSha,
-  [string]$SourceRoot = (Split-Path -Parent $PSScriptRoot),
+  [string]$SourceRoot,
   [ValidateLength(1,160)]
   [string]$Message = 'checkpoint: preserva continuidade do INEPAD Reembolso',
   [switch]$Publish
@@ -13,6 +13,9 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+if ([string]::IsNullOrWhiteSpace($SourceRoot)) {
+  $SourceRoot = Split-Path -Parent $PSScriptRoot
+}
 $repository = 'https://github.com/eduardofalsarellajunior/comprova-reembolsos.git'
 $continuityRef = 'refs/heads/codex/continuity'
 $branch = 'codex/continuity'

@@ -181,3 +181,10 @@ Histórico cronológico e cumulativo. Datas de referência em **America/Sao_Paul
 - **Resultados:** `next build --webpack` passou TypeScript e gerou 21/21 páginas; smoke HTTP passou 1/1; ESLint integral passou sem erros ou avisos. Browser Chrome headless passou em desktop e celular com 14 seções para admin, 5 para comum, Meus dados somente leitura, equipe, projeto/wizard/inativos, despesas, quilometragem, menu e responsividade.
 - **Isolamento:** o browser usou somente Auth/REST/RPC locais simulados e confirmou zero requisições externas; capturas contêm apenas dados fictícios e ficaram no Temp. Nenhum Office 365, OCR, Supabase, provedor de e-mail ou dado real foi exercitado.
 - **Próxima ação:** sincronizar o checkpoint em `codex/continuity` e revisar localmente migrations/guia/bloqueio de deploy. Sem SQL remoto, importação, e-mail, deploy ou `main`.
+
+## 2026-11-17 16:33:47 -03:00 — Gate de ativação e publisher revisados
+
+- **Continuidade:** a validação anterior foi confirmada em `codex/continuity` no SHA `34cb6fc84f1d0a8c36b73b740a88ca9fa0f2520d`; `main` permaneceu em `b36af53f175190ef362f9a7a570b656a093a07a1`.
+- **Falha e correção:** o comando documentado do publisher sem `-SourceRoot` falhou antes de clonar porque o valor padrão era avaliado cedo demais. A primeira correção resolveu a pasta `scripts`, também rejeitada antes do clone. A versão final resolve o pai de `$PSScriptRoot`; parser PowerShell e ensaio completo sem `-Publish` passaram, criando somente um commit temporário.
+- **Migrations:** revisão local das quatro V2 confirmou nove tabelas novas com RLS, zero DDL de tabela/schema fora de `comprova`, zero `DROP TABLE/SCHEMA` e somente cinco substituições de políticas RLS conhecidas. Os acessos a `auth.users` e `storage.objects` são somente leitura. O guia agora separa autorização de pré-validação/migration, configuração de e-mail e deploy.
+- **Limites:** nenhuma consulta ao Supabase compartilhado, SQL remoto, importação, e-mail ou deploy. Próxima operação remota exige autorização específica; checkpoint continua autorizado apenas em `codex/continuity`.

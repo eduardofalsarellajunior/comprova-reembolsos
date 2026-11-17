@@ -52,6 +52,19 @@ Testes puros/SQL: navegação, parser, perfis, projetos/políticas e reporting e
 
 No OneDrive, use QA limpo fora da pasta sincronizada para build. Não copie .env, .next, dependências virtuais, comprovantes ou planilhas. O teste `tests/settings-v2.browser.mjs` exige `QA_APP_ROOT` no Temp, build com URL fictícia `http://127.0.0.1:56443` e chave pública fictícia `offline-test-publishable`; somente serviços locais simulados são permitidos. Capturas e perfil do navegador ficam fora do Git. Esse ensaio não substitui login Office 365, OCR, usuário real ou e-mail de produção.
 
+## Gate de ativação
+
+Em 17/11/2026, a ponta de continuidade passou em build Webpack/TypeScript (21 páginas), smoke HTTP, lint e browser sintético desktop/celular. A suíte SQL/mocks registrada passou 13/13. A revisão estática das quatro migrations encontrou nove tabelas novas, todas com RLS; nenhuma DDL escreve fora de `comprova`. Os únicos acessos a outros namespaces são leituras do e-mail verificado em `auth.users` e da existência do comprovante em `storage.objects`. Os `drop` substituem somente cinco políticas RLS conhecidas. Isso é evidência local, não confirma o estado atual do Supabase compartilhado.
+
+Antes de qualquer ativação remota:
+
+1. Obter autorização específica para a consulta/pré-validação e para aplicar as quatro migrations no projeto correto; a autorização de checkpoint não cobre banco ou deploy.
+2. Conferir histórico, objetos, nomes das cinco políticas substituídas, grants, backup/recuperação e que a migration organizacional anterior está presente. Uma divergência interrompe a aplicação; não adaptar o banco por adivinhação.
+3. Aplicar somente os quatro arquivos listados acima, na ordem, sem `db push` indiscriminado e sem importar a planilha. Verificar objetos/RLS/grants e os marcadores de isolamento depois de cada etapa.
+4. Manter `COMPROVA_EMAIL_SEND_ENABLED` desligado e não criar cron/worker durante a migration. Provedor, remetente, segredo e reconciliação exigem uma ativação separada.
+5. Autorizar e executar o deploy do front separadamente, apenas depois do banco validado. O branch `codex/continuity` permanece com deploy automático bloqueado e não deve ser mesclado ou promovido implicitamente.
+6. Homologar com contas de teste controladas os três tipos de usuário, projetos/aprovadores, relatório em BRL e aprovação. Não usar comprovantes, pagamentos, e-mails ou lançamentos reais nessa etapa sem autorização adicional.
+
 ## Recuperação
 
 Antes de ativar no banco compartilhado, conferir backup, objetos existentes, grants e revisão de origem. Em problema no front, restaurar o deploy anterior autorizado e desligar o envio de e-mail; preservar as tabelas, dados e histórico novos. Não remover objetos compartilhados nem apagar filas para simular rollback. Pendências de envio ambíguo precisam ser reconciliadas com o provedor antes de qualquer tentativa manual.
