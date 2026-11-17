@@ -27,7 +27,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const { data: existing } = await supabase.from("report_expenses").select("expense_id").in("expense_id", expenseIds);
   if (existing?.length) return NextResponse.json({ error: "Uma ou mais despesas já estão vinculadas a um relatório.", expenseIds: existing.map((row: { expense_id: string }) => row.expense_id) }, { status: 409 });
   const { error } = await supabase.from("report_expenses").insert(expenseIds.map((expenseId, index) => ({ report_id: reportId, expense_id: expenseId, position: index })));
-  if (error?.code === "22023") return NextResponse.json({ error: "Confira tipo de despesa, descrição e valor positivo em reais." }, { status: 400 });
+  if (error?.code === "22023") return NextResponse.json({ error: "Confira projeto autorizado, forma de pagamento, tipo de despesa, descrição e valor positivo em reais." }, { status: 400 });
   if (error) return NextResponse.json({ error: "Não foi possível vincular as despesas." }, { status: 500 });
   await supabase.from("audit_events").insert({ actor_user_id: user.id, entity_type: "report", entity_id: reportId, action: "expenses_attached", metadata: { count: expenseIds.length } });
   return NextResponse.json({ ok: true, count: expenseIds.length });

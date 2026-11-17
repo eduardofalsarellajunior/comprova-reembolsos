@@ -21,7 +21,7 @@ const changeSelection = (current: string[], id: string, checked: boolean) => che
   : current.filter((value) => value !== id);
 
 function useProjectDirectory(companyId: string, memberId?: string) {
-  const [snapshot, setSnapshot] = useState<{ companyId?: string; memberId?: string; projects: Project[]; links: ProjectMember[]; error: string }>({ projects: [], links: [], error: "" });
+  const [snapshot, setSnapshot] = useState<{ companyId?: string; memberId?: string; revision: number; projects: Project[]; links: ProjectMember[]; error: string }>({ revision: -1, projects: [], links: [], error: "" });
   const [revision, setRevision] = useState(0);
   useEffect(() => {
     let live = true;
@@ -30,15 +30,15 @@ function useProjectDirectory(companyId: string, memberId?: string) {
     void Promise.all([projectQuery, memberId ? links.eq("member_id", memberId) : links]).then(([projects, membership]) => {
       if (!live) return;
       setSnapshot({
-        companyId, memberId, projects: projects.data || [], links: membership.data || [],
+        companyId, memberId, revision, projects: projects.data || [], links: membership.data || [],
         error: projects.error || membership.error ? "Não foi possível carregar projetos e membros." : "",
       });
     }).catch(() => {
-      if (live) setSnapshot({ companyId, memberId, projects: [], links: [], error: "Não foi possível carregar projetos e membros." });
+      if (live) setSnapshot({ companyId, memberId, revision, projects: [], links: [], error: "Não foi possível carregar projetos e membros." });
     });
     return () => { live = false; };
   }, [companyId, memberId, revision]);
-  const loading = snapshot.companyId !== companyId || snapshot.memberId !== memberId;
+  const loading = snapshot.companyId !== companyId || snapshot.memberId !== memberId || snapshot.revision !== revision;
   return { projects: loading ? [] : snapshot.projects, links: loading ? [] : snapshot.links, error: loading ? "" : snapshot.error,
     loading, reload: () => setRevision((x) => x + 1) };
 }

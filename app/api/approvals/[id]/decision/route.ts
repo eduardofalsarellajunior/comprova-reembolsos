@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase, getBearerToken } from "@/lib/server-auth";
+import { dispatchConfiguredApprovalEmailQueue } from "@/lib/email-dispatch";
 
 export const runtime = "nodejs";
 
@@ -12,7 +13,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const { id } = await context.params;
   const body = await request.json().catch(() => null) as { decision?: string; reason?: string; attempt?: number; step?: number } | null;
   if (!body || !["approve", "reject"].includes(body.decision || "") || !Number.isInteger(body.attempt) || !Number.isInteger(body.step)) return NextResponse.json({ error: "Decisão inválida. Atualize a página e tente novamente." }, { status: 400 });
-  const { data, error } = await supabase.rpc("decide_report", { p_instance_id: id, p_decision: body.decision, p_reason: typeof body.reason === "string" ? body.reason : "", p_attempt: body.attempt, p_step: body.step });
+  const { data, error } = await supabase.rpc<{ status?: string }>("decide_report", { p_instance_id: id, p_decision: body.decision, p_reason: typeof body.reason === "string" ? body.reason : "", p_attempt: body.attempt, p_step: body.step });
   if (error) return NextResponse.json({ error: error.message }, { status: 409 });
+  if (data?.status === "approved") {
+    try { await dispatchConfiguredApprovalEmailQueue(id); }
+    catch { /* The committed approval stays valid; the durable outbox is retried separately. */ }
+  }
   return NextResponse.json(data);
 }

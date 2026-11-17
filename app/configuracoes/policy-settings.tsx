@@ -420,7 +420,7 @@ export function MileagePolicySettings({ companyId, admin = false }: { companyId:
         {showMembers ? <MemberChoices people={data.people} links={data.links} policyId={draft.id} automatic={draft.default} disabled={busy}
           selected={draft.memberIds} onChange={(values) => setDraft({ ...draft, memberIds: values })} /> : <>
           <div className={styles.fields}>
-            {!draft.default && <label>Nome<input required minLength={2} maxLength={160} disabled={busy || !admin} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>}
+            <label>Nome<input required minLength={2} maxLength={160} disabled={busy || !admin} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} /></label>
             <label>Valor pago por km (R$)<input required={draft.default} inputMode="decimal" disabled={busy || !admin} value={draft.rate} onChange={(event) => setDraft({ ...draft, rate: event.target.value })} placeholder={draft.default ? "0,0000" : "Herdar"} /></label>
           </div>
           <h4>Valor pago por tipo de veículo</h4>

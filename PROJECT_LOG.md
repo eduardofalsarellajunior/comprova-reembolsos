@@ -145,3 +145,18 @@ Histórico cronológico e cumulativo. Datas de referência em **America/Sao_Paul
 - **Ensaio:** instalado PGlite 0.5.16 em pasta temporária separada, sem alterar dependências do app. Testes de banco ainda em preparação.
 - **Decisões:** OCR incompleto continua revisável como extração avulsa; validação estrita no lançamento manual, vínculo e submissão. Projeto e pagamento são herdados do contexto do relatório. Limites legados ativos não serão apagados silenciosamente e devem ser mostrados na interface.
 - **Próxima ação:** integrar equipe/Meus dados, executar ensaios SQL e validar build limpo. Snapshot preventivo pode conter código parcial; nenhuma migração, importação real, e-mail ou produção nesta etapa.
+
+## 2026-11-17 15:56:04 -03:00 — Equipe integrada e ensaio de perfis aprovado
+
+- **Avanço:** TeamSettings/CSS implementados, Meus dados somente leitura do perfil privado, senha/segurança/preferências preservadas. Editor de admin inclui cadastro, banco, cargo/departamento, tipos obrigatórios, projetos/aprovadores e importação com prévia/confirmações; gravações usam RPC e RLS, não metadata editável para autorização.
+- **Banco descartável:** `tests/member-profiles.postgres.mjs` passou, cobrindo preview sem escrita, rollback integral, repetição sem duplicidade, preservação de tipos/campos, associação por e-mail confirmado, datas inválidas, proteção do proprietário e negação a comum/anônimo/outra empresa. Marcadores em public/Storage e contagem Auth permaneceram intactos no teste fictício. `tests/company-workflow.postgres.mjs` também passou; total 2/2.
+- **Integração:** TypeScript corrigido para componentes; único erro restante no checkout é um artefato antigo em .next. Lint dos componentes de equipe passou. Build e browser em QA limpo ainda pendentes.
+- **Políticas/e-mail:** revisão de RLS de quilometragem, membros ativos/inativos e políticas legadas em andamento. Quatro SQLs V2 preenchidos; fila final aprovada/dispatcher configurável em testes, sem provedor real ativado.
+- **Checkpoint:** anterior `cf69c90` confirmado no remoto; manifesto ampliado para 64 caminhos para transferir código e documentação juntos. Nenhum push para main, deploy, SQL remoto ou dado real.
+
+## 2026-11-17 16:03:14 -03:00 — Ensaios combinados e revisão independente
+
+- **Resultados:** 12/12 testes combinados de navegação/parser/perfis/regressão/políticas/reporting passaram em PGlite e mocks. Revisão cruzada achou duas falhas: service_role precisava USAGE no schema e conflito transitório de idempotência não podia encerrar a fila. Corrigidos em SQL/adapter; removido grant artificial do teste e suíte de e-mail passou 6/6. Referência: documentação oficial do Resend sobre chaves idempotentes.
+- **React/QA:** compilação e TypeScript passaram numa cópia limpa sem .env; geração estática falhou por EPERM do sandbox ao criar diretório. Repetir fora dessa restrição. Lint integral apontou setter/memoização e carregamento de equipe em effect; ajustados preservando regras e adicionando guarda contra resposta tardia de outra empresa. Lint repetido em andamento.
+- **Continuidade:** captura anterior foi bloqueada pelo hash porque um agente alterou arquivo durante a cópia; nenhum commit/push saiu dessa captura. Versão remota ainda cf69c90; ensaio isolado preservado. Foram acrescentados dispatcher, teste browser e guia de ativação ao manifesto (67 caminhos).
+- **Limites:** build completo, smoke e browser ainda pendentes. Nenhum e-mail real, serviço provisionado, dado importado, SQL remoto ou produção alterados. Provedor/agendador exigirão configuração/autorização; fila não implica entrega real.

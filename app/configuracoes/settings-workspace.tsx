@@ -18,6 +18,12 @@ import "./settings.css";
 type Membership = { company: Company; role: string };
 const roleLabels: Record<string, string> = { admin: "Administrador", approver: "Intermediário", employee: "Normal", finance: "Intermediário" };
 
+async function loadTeamMembers(companyId: string) {
+  const { data, error } = await supabase.from("company_members").select("*").eq("company_id", companyId).order("created_at");
+  if (error) throw new Error("Não foi possível carregar os membros.");
+  return (data || []) as Member[];
+}
+
 export default function SettingsWorkspace() {
   const requestedSection = useSearchParams().get("secao");
   const item = allSettings.find((entry) => entry.id === requestedSection) ?? allSettings[0];
@@ -28,7 +34,7 @@ export default function SettingsWorkspace() {
   const [loading, setLoading] = useState(true);
   const [companies, setCompanies] = useState<Membership[]>([]);
   const [companyId, setCompanyId] = useState("");
-  const [draftOverride, setDraft] = useState<Company | null>(null);
+  const [draftOverride, setDraftOverride] = useState<Company | null>(null);
   const [newCompanyName, setNewCompanyName] = useState("");
   const [team, setTeam] = useState<{ id: string; members: Member[] } | null>(null);
   const [notice, setNotice] = useState("");
@@ -42,16 +48,15 @@ export default function SettingsWorkspace() {
   const canLoadTeam = admin && (section === "membros-equipe" || section === "projetos");
 
   const refreshTeams = useCallback(async (id: string) => {
-    const { data, error } = await supabase.from("company_members").select("*").eq("company_id", id).order("created_at");
-    if (error) throw new Error("Não foi possível carregar os membros.");
-    setTeam({ id, members: (data || []) as Member[] });
+    const loaded = await loadTeamMembers(id);
+    setTeam({ id, members: loaded });
   }, []);
 
   const refreshCompanies = useCallback(async (id: string, preferredCompanyId = "") => {
     const entries = await loadMyCompanies(id);
     setCompanies(entries);
     setCompanyId(entries.some((entry) => entry.company.id === preferredCompanyId) ? preferredCompanyId : (entries[0]?.company.id ?? ""));
-    setDraft(null);
+    setDraftOverride(null);
   }, []);
 
   useEffect(() => {
@@ -68,9 +73,11 @@ export default function SettingsWorkspace() {
   useEffect(() => {
     if (!canLoadTeam || !companyId) return;
     let alive = true;
-    void refreshTeams(companyId).catch((error: Error) => { if (alive) setNotice(error.message); });
+    void loadTeamMembers(companyId).then((loaded) => {
+      if (alive) setTeam({ id: companyId, members: loaded });
+    }).catch((error: Error) => { if (alive) setNotice(error.message); });
     return () => { alive = false; };
-  }, [canLoadTeam, companyId, refreshTeams]);
+  }, [canLoadTeam, companyId]);
 
   async function run(action: () => Promise<void>) {
     setBusy(true); setNotice("");
@@ -123,7 +130,7 @@ export default function SettingsWorkspace() {
     items: group.items.filter((entry) => canSeeSettings(entry, role, !!companies.length) && settingsSearchKey(entry.title).includes(settingsSearchKey(search))),
   })).filter(({ items }) => items.length);
   const companyPicker = companies.length > 0 ? <div className="settingsCompany">
-    <label>Empresa <select value={companyId} onChange={(event) => { setCompanyId(event.target.value); setDraft(null); setTeam(null); setNotice(""); }} disabled={busy}>{companies.map((entry) => <option key={entry.company.id} value={entry.company.id}>{entry.company.name}</option>)}</select></label>
+    <label>Empresa <select value={companyId} onChange={(event) => { setCompanyId(event.target.value); setDraftOverride(null); setTeam(null); setNotice(""); }} disabled={busy}>{companies.map((entry) => <option key={entry.company.id} value={entry.company.id}>{entry.company.name}</option>)}</select></label>
     {role && <span className="settingsRole">{roleLabels[role] || role}</span>}
   </div> : null;
   const showsDirectory = allowed && section === "departamentos-cargos" && selected;
@@ -154,13 +161,13 @@ export default function SettingsWorkspace() {
         </section> : <section className="reportCard"><p>Você ainda não está vinculado a uma empresa.</p></section>) : <>
           {section === "dados-empresa" && draft && <section className="reportCard"><h2>Identidade e regras gerais</h2>
             <form onSubmit={(event) => { event.preventDefault(); void saveCompany(); }}><div className="settingsGrid">
-              <label>Nome da empresa<input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} required /></label>
-              <label>Razão social<input value={draft.legal_name} onChange={(event) => setDraft({ ...draft, legal_name: event.target.value })} /></label>
-              <label>CNPJ<input value={draft.tax_id} onChange={(event) => setDraft({ ...draft, tax_id: event.target.value })} /></label>
-              <label>Prefixo do relatório<input value={draft.report_prefix} onChange={(event) => setDraft({ ...draft, report_prefix: event.target.value })} /></label>
-              <label>Cor da marca<input type="color" value={draft.brand_color} onChange={(event) => setDraft({ ...draft, brand_color: event.target.value })} /></label>
+              <label>Nome da empresa<input value={draft.name} onChange={(event) => setDraftOverride({ ...draft, name: event.target.value })} required /></label>
+              <label>Razão social<input value={draft.legal_name} onChange={(event) => setDraftOverride({ ...draft, legal_name: event.target.value })} /></label>
+              <label>CNPJ<input value={draft.tax_id} onChange={(event) => setDraftOverride({ ...draft, tax_id: event.target.value })} /></label>
+              <label>Prefixo do relatório<input value={draft.report_prefix} onChange={(event) => setDraftOverride({ ...draft, report_prefix: event.target.value })} /></label>
+              <label>Cor da marca<input type="color" value={draft.brand_color} onChange={(event) => setDraftOverride({ ...draft, brand_color: event.target.value })} /></label>
             </div><p className="muted">Moeda do sistema: Real (R$).</p>
-            <div className="settingsChecks"><label><input type="checkbox" checked={draft.require_receipt} onChange={(event) => setDraft({ ...draft, require_receipt: event.target.checked })} /> Exigir comprovante</label></div>
+            <div className="settingsChecks"><label><input type="checkbox" checked={draft.require_receipt} onChange={(event) => setDraftOverride({ ...draft, require_receipt: event.target.checked })} /> Exigir comprovante</label></div>
             <button className="dark" disabled={busy || !draft.name.trim()}>Salvar configurações</button></form>
           </section>}
           {showsDirectory && <DepartmentSettings key={companyId} companyId={companyId} companyName={selected.company.name} legalName={selected.company.legal_name} canManage={admin} companyPicker={companyPicker} />}

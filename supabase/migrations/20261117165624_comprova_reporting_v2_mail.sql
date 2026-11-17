@@ -102,7 +102,7 @@ begin
   then raise exception 'O relatório não está disponível para incluir despesas.'; end if;
   perform comprova.assert_reporting_dimensions(v_report.company_id,v_report.owner_id,v_report.project_id,v_report.payment_method_id,v_report.currency);
   if not comprova.reporting_expense_fields_valid(p_amount,'BRL',p_description)
-    or p_date is null or p_date>current_date or char_length(btrim(coalesce(p_supplier,''))) not between 1 and 160
+    or p_date is null or char_length(btrim(coalesce(p_supplier,''))) not between 1 and 160
     or char_length(v_category) not between 1 and 80
   then raise exception 'Confira fornecedor, categoria, data, descrição e valor positivo em reais.' using errcode='22023'; end if;
   if not exists (select 1 from comprova.expense_categories where company_id=v_report.company_id and active and name=v_category)
@@ -122,6 +122,21 @@ end;
 $$;
 revoke all on function comprova.add_manual_report_expense(uuid,text,date,numeric,text,text,uuid) from public,anon;
 grant execute on function comprova.add_manual_report_expense(uuid,text,date,numeric,text,text,uuid) to authenticated;
+
+create function comprova.validate_reporting_submission()
+returns trigger language plpgsql security definer set search_path='' as $$
+begin
+  if old.status not in ('draft','rejected') or new.status<>'submitted' then return new; end if;
+  perform comprova.assert_reporting_dimensions(new.company_id,new.owner_id,new.project_id,new.payment_method_id,new.currency);
+  if exists (select 1 from comprova.report_expenses re join comprova.expenses e on e.id=re.expense_id
+    where re.report_id=new.id and not comprova.reporting_expense_fields_valid(e.amount,e.currency,e.description))
+  then raise exception 'Revise descrição e valor positivo em reais de todas as despesas.' using errcode='22023'; end if;
+  return new;
+end;
+$$;
+revoke all on function comprova.validate_reporting_submission() from public,anon,authenticated;
+create trigger comprova_reporting_submission before update of status on comprova.reports
+  for each row execute function comprova.validate_reporting_submission();
 
 -- One durable notification per final approval revision. No historical backfill.
 create table comprova.approval_email_outbox (
@@ -177,7 +192,8 @@ create trigger comprova_approved_report_email after update of status on comprova
   for each row execute function comprova.enqueue_approved_report_email();
 
 -- Only the server worker's service_role may claim/finish jobs. No public enqueue API.
-create function comprova.claim_approval_emails(p_limit integer default 10)
+grant usage on schema comprova to service_role;
+create function comprova.claim_approval_emails(p_limit integer default 10,p_instance_id uuid default null)
 returns setof comprova.approval_email_outbox language plpgsql security definer set search_path='' as $$
 begin
   if p_limit is null or p_limit not between 1 and 20 then raise exception 'Lote inválido.'; end if;
@@ -193,6 +209,7 @@ begin
       select id from comprova.approval_email_outbox
       where ((status in ('pending','retry') and available_at<=now())
         or (status='processing' and locked_until<now())) and attempts<5
+        and (p_instance_id is null or instance_id=p_instance_id)
       order by available_at,created_at for update skip locked limit p_limit
     )
     update comprova.approval_email_outbox o set status='processing',attempts=o.attempts+1,
@@ -200,8 +217,8 @@ begin
     from ready where o.id=ready.id returning o.*;
 end;
 $$;
-revoke all on function comprova.claim_approval_emails(integer) from public,anon,authenticated;
-grant execute on function comprova.claim_approval_emails(integer) to service_role;
+revoke all on function comprova.claim_approval_emails(integer,uuid) from public,anon,authenticated;
+grant execute on function comprova.claim_approval_emails(integer,uuid) to service_role;
 
 create function comprova.finish_approval_email(
   p_id uuid,p_lease uuid,p_success boolean,p_retryable boolean default false,p_provider_id text default null,p_error_code text default null

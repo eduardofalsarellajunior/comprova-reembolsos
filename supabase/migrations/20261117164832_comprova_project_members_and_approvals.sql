@@ -186,6 +186,10 @@ create policy comprova_approval_steps_select on comprova.approval_steps for sele
       and ai.status='pending' and ai.current_step=approval_steps.step_order
   ))
 );
+drop policy comprova_approval_steps_write on comprova.approval_steps;
+create policy comprova_approval_steps_write on comprova.approval_steps for all to authenticated
+  using (exists (select 1 from comprova.approval_flows f where f.id=flow_id and not f.member_snapshot and comprova.is_company_admin(f.company_id)))
+  with check (exists (select 1 from comprova.approval_flows f where f.id=flow_id and not f.member_snapshot and comprova.is_company_admin(f.company_id)));
 
 -- Report API and direct PostgREST inserts are subject to the same new dimensions.
 -- Existing draft metadata can still be read, withdrawn and corrected without rewriting history.
