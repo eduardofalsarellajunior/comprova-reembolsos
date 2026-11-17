@@ -188,3 +188,16 @@ Histórico cronológico e cumulativo. Datas de referência em **America/Sao_Paul
 - **Falha e correção:** o comando documentado do publisher sem `-SourceRoot` falhou antes de clonar porque o valor padrão era avaliado cedo demais. A primeira correção resolveu a pasta `scripts`, também rejeitada antes do clone. A versão final resolve o pai de `$PSScriptRoot`; parser PowerShell e ensaio completo sem `-Publish` passaram, criando somente um commit temporário.
 - **Migrations:** revisão local das quatro V2 confirmou nove tabelas novas com RLS, zero DDL de tabela/schema fora de `comprova`, zero `DROP TABLE/SCHEMA` e somente cinco substituições de políticas RLS conhecidas. Os acessos a `auth.users` e `storage.objects` são somente leitura. O guia agora separa autorização de pré-validação/migration, configuração de e-mail e deploy.
 - **Limites:** nenhuma consulta ao Supabase compartilhado, SQL remoto, importação, e-mail ou deploy. Próxima operação remota exige autorização específica; checkpoint continua autorizado apenas em `codex/continuity`.
+
+## 2026-11-17 19:35:09 -03:00 — Codagem do histórico de comprovantes
+
+- **Pedido e base:** usuário autorizou continuar a codagem; Local/Windows na mesma árvore preservada. Remoto `codex/continuity` confirmado em `827aad146b3a0c5f3d0960e3b2c6915a294ae91a`; `main` segue `b36af53`.
+- **Falhas encontradas:** o histórico converte o valor a cada tecla e apaga entradas parciais como `51,`; o lançamento assistido continua a copiar/abrir a VExpenses quando a persistência falha. Correções em andamento no componente e regressão browser com mocks locais em preparação.
+- **Revisão paralela:** equipe/projetos/conta revisados sem outra falha funcional de alta confiança para esta entrega. Lacunas de cobertura de importação/vínculos ficam identificadas para próxima etapa.
+- **Estado preventivo:** código ainda não testado; não há nova migration, dependência, dado real, consulta ao banco compartilhado, envio ou deploy. Próxima ação: demonstrar a falha no build anterior, reconstruir com o patch e testar o fluxo corrigido.
+
+## 2026-11-17 19:36:27 -03:00 — Regressão pré-patch reproduzida
+
+- **Evidência:** browser sintético contra o build QA anterior falhou exatamente ao digitar a vírgula de `51,80`: esperado `51,`, recebido string vazia. As verificações anteriores de Configurações passaram até esse ponto.
+- **Código pronto para ensaio:** histórico preserva string de edição; salvar/exportar/assistir usam valor revisado; falha de persistência interrompe o assistido e aparece dentro do modal. Sintaxe do teste e diff check passaram. Build/browser do patch ainda não executados.
+- **Próxima ação:** preservar este snapshot preventivo e reconstruir no Temp com configuração fictícia; não há teste em produção ou VExpenses real.

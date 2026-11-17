@@ -69,6 +69,8 @@ const token = `${encode({ alg: "HS256", typ: "JWT" })}.${encode({ sub: userId, e
 const auth = { access_token: token, refresh_token: "offline-fixture-refresh", expires_in: 3600, expires_at: exp, token_type: "bearer", user };
 const routesSeen = new Set();
 const rpcCalls = [];
+const expenseWrites = [];
+let failExpenseWrite = false;
 async function readJson(request) { const chunks = []; for await (const chunk of request) chunks.push(chunk); return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}"); }
 function filteredRows(table, params) {
   return (rest[table] || []).filter((row) => [...params].every(([key, condition]) => {
@@ -119,6 +121,14 @@ const mock = createServer(async (req, res) => {
     if (pathname === "/auth/v1/token") { await readJson(req); res.end(JSON.stringify(auth)); return; }
     if (pathname === "/auth/v1/user") { res.end(JSON.stringify(user)); return; }
     if (pathname.startsWith("/rest/v1/rpc/")) { res.end(JSON.stringify(simulateRpc(pathname.split("/").at(-1), await readJson(req)))); return; }
+    if (pathname === "/rest/v1/expenses" && req.method === "PATCH") {
+      const body = await readJson(req);
+      expenseWrites.push({ body, failed: failExpenseWrite });
+      if (failExpenseWrite) { res.writeHead(403).end(JSON.stringify({ code: "42501", message: "Falha fictícia de persistência." })); return; }
+      const rows = filteredRows("expenses", url.searchParams);
+      for (const row of rows) Object.assign(row, body);
+      res.end(JSON.stringify(rows)); return;
+    }
     if (pathname.startsWith("/rest/v1/") && ["GET", "HEAD"].includes(req.method)) {
       const rows = filteredRows(pathname.split("/").at(-1), url.searchParams);
       res.end(JSON.stringify(req.headers.accept?.includes("pgrst.object") ? rows[0] || null : rows)); return;
@@ -284,6 +294,67 @@ try {
   await screenshot("equipe-modal-mobile.png");
   await click('button[aria-label="Fechar cadastro"]');
 
+  // Historical receipt amounts must remain editable through intermediate strings
+  // (especially a trailing comma), and failed saves must not launch external apps.
+  const receiptId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+  const expenseId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+  const reportId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
+  const paymentId = "12121212-1212-4121-8121-121212121212";
+  const receipt = { id: receiptId, user_id: userId, file_name: "comprovante-ficticio.jpg", storage_path: `${userId}/comprovante-ficticio.jpg` };
+  rest.receipts.push(receipt);
+  rest.expenses.push({ id: expenseId, receipt_id: receiptId, user_id: userId, supplier: "Fornecedor fictício QA", expense_date: "2026-11-17", amount: 13, currency: "BRL", category: "Categoria fictícia", description: "Despesa fictícia do histórico", notes: "", confidence: "alta", entry_source: "ocr", created_at: "2026-11-17T12:00:00Z", receipts: receipt });
+  rest.payment_methods.push({ id: paymentId, company_id: companyId, name: "Cartão Pessoal QA", active: true });
+  rest.project_members.push({ company_id: companyId, project_id: projectId, member_id: userId });
+  rest.reports.push({ id: reportId, company_id: companyId, owner_id: userId, name: "Relatório fictício de regressão", description: "", notes: "", status: "draft", total_amount: 0, currency: "BRL", period_start: null, period_end: null, cost_center_id: null, project_id: projectId, payment_method_id: paymentId, approval_flow_id: null, rejection_reason: null, created_at: "2026-11-17T12:00:00Z", updated_at: "2026-11-17T12:00:00Z", report_code: "QA-REGRESSAO", submitted_at: null, report_expenses: [], projects: { name: "Projeto fictício ativo" }, payment_methods: { name: "Cartão Pessoal QA" } });
+  await cmd("Emulation.setDeviceMetricsOverride", { width: 1366, height: 900, deviceScaleFactor: 1, mobile: false });
+  await cmd("Page.navigate", { url: origin + "/relatorios" });
+  await waitFor(() => bodyIncludes("Relatório fictício de regressão"), "relatório fictício em rascunho");
+  await evaluate("Array.from(document.querySelectorAll('summary')).find((node) => node.textContent.includes('Ler comprovantes')).click()");
+  await clickText("button", "Abrir histórico e exportação");
+  const history = 'section[aria-label="Histórico de comprovantes"]';
+  const historyAmount = `${history} .moneyInput input`;
+  await waitFor(() => present(historyAmount), "valor do histórico fictício");
+  await evaluate("window.__qaClipboard = []; window.__qaOpened = []; Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (text) => { window.__qaClipboard.push(text); } } }); window.open = (...args) => { window.__qaOpened.push(args); return null; }");
+  await fill(historyAmount, "");
+  await evaluate(`document.querySelector(${JSON.stringify(historyAmount)}).focus()`);
+  let typedAmount = "";
+  for (const character of "51,80") {
+    typedAmount += character;
+    await cmd("Input.insertText", { text: character });
+    assert.equal(await evaluate(`document.querySelector(${JSON.stringify(historyAmount)}).value`), typedAmount, "O campo deve preservar cada caractere do valor brasileiro, inclusive a vírgula intermediária.");
+  }
+  await clickText(`${history} button`, "Salvar");
+  await waitFor(() => bodyIncludes("Alteração salva no histórico."), "gravação de 51,80");
+  assert.equal(expenseWrites.at(-1).body.amount, 51.8);
+  assert.equal(rest.expenses[0].amount, 51.8);
+  await clickText(`${history} button`, "Copiar tabela");
+  assert.ok((await evaluate("window.__qaClipboard.at(-1)")).includes("51,80"), "A exportação deve usar o mesmo valor revisado.");
+  const writesBeforeInvalid = expenseWrites.length;
+  await fill(historyAmount, "51,800");
+  await clickText(`${history} button`, "Salvar");
+  await waitFor(() => bodyIncludes("valor positivo em reais"), "bloqueio de centavos inválidos");
+  assert.equal(expenseWrites.length, writesBeforeInvalid, "Um valor inválido não pode gerar PATCH.");
+  assert.equal(rest.expenses[0].amount, 51.8);
+  await fill(historyAmount, "52,30");
+  await clickText(`${history} button`, "Assistir");
+  await waitFor(() => present(".assistedModal"), "lançamento assistido fictício");
+  await evaluate("window.__qaClipboard = []; window.__qaOpened = []");
+  failExpenseWrite = true;
+  await click(".assistedModal .modalPrimary");
+  await waitFor(() => bodyIncludes("Esta despesa está bloqueada"), "erro de persistência do lançamento assistido");
+  assert.ok(await evaluate("document.querySelector('.assistedModal [role=alert]')?.textContent.includes('Esta despesa está bloqueada')"), "O erro deve ficar visível dentro do modal aberto.");
+  assert.deepEqual(await evaluate("({ copied: window.__qaClipboard.length, opened: window.__qaOpened.length })"), { copied: 0, opened: 0 }, "Falha ao salvar deve impedir cópia e abertura da VExpenses.");
+  assert.equal(rest.expenses[0].amount, 51.8, "O mock deve preservar o valor salvo antes da falha.");
+  failExpenseWrite = false;
+  await click(".assistedModal .modalPrimary");
+  await waitFor(() => bodyIncludes("Dados copiados e VExpenses aberta."), "retomada assistida após gravação confirmada");
+  assert.equal(expenseWrites.at(-1).body.amount, 52.3);
+  assert.ok((await evaluate("window.__qaClipboard.at(-1)")).includes("Valor: 52,30"));
+  assert.equal((await evaluate("window.__qaOpened"))[0][0], "https://app.vexpenses.com/");
+  assert.equal(rest.reports[0].status, "draft");
+  assert.equal(rpcCalls.some((call) => call.name === "submit_report"), false);
+  await screenshot("historico-valor-revisado.png");
+
   rest.company_members[0].role = "employee";
   await cmd("Emulation.setDeviceMetricsOverride", { width: 1366, height: 900, deviceScaleFactor: 1, mobile: false });
   await navigate("");
@@ -298,7 +369,7 @@ try {
   assert.equal(blockedRequests.length, 0, "A aplicação tentou rede externa durante o teste local.");
   assert.ok(routesSeen.has("POST /auth/v1/token"));
   assert.ok(routesSeen.has("GET /rest/v1/company_member_profiles"));
-  console.log("OK — Configurações V2: 14 itens/admin e 5/comum; perfil admin e Meus dados somente leitura; wizard/projetos inativos; despesas/km; menu desktop/mobile. Tudo com Auth/REST/RPC simulados, sem rede externa.");
+  console.log("OK — Configurações V2: 14 itens/admin e 5/comum; perfil admin e Meus dados somente leitura; wizard/projetos inativos; despesas/km; menu desktop/mobile; histórico preserva centavos e lançamento assistido exige gravação confirmada. Tudo com Auth/REST/RPC simulados, sem rede externa.");
   console.log(`Capturas locais fictícias: ${artifacts}`);
 } catch (error) {
   console.error(error.message);

@@ -118,15 +118,21 @@ export default function ReceiptWorkspace({ reportId, reportName, currency, userI
   const [defaultCostCenter, setDefaultCostCenter] = useState("Comercial");
   const [defaultPaymentMethod, setDefaultPaymentMethod] = useState("Cartão Pessoal");
   const [sendingToVexpenses, setSendingToVexpenses] = useState(false);
+  const [assistedError, setAssistedError] = useState("");
 
   const selectedReport = useMemo(() => vexpensesContext?.reports.find((report) => report.id.toString() === selectedReportId), [selectedReportId, vexpensesContext]);
   const selectedExpenseType = useMemo(() => vexpensesContext?.expenseTypes.find((type) => type.id.toString() === selectedExpenseTypeId), [selectedExpenseTypeId, vexpensesContext]);
 
-  const total = useMemo(() => expenses.reduce((sum, row) => sum + (row.amount || 0), 0), [expenses]);
+  const total = useMemo(() => expenses.reduce((sum, row) => sum + (parsePositiveBrl(amountDrafts[row.id] ?? row.amount) || 0), 0), [expenses, amountDrafts]);
   const batch = new Set(batchIds);
   const justRead = expenses.filter((row) => batch.has(row.id));
   const isLinked = (row: Expense) => knownLinkedIds.has(row.id) || attachedIds.includes(row.id);
   const selected = justRead.filter((row) => selectedIds.includes(row.id) && !isLinked(row) && row.currency === currency);
+
+  function reviewedExpense(row: Expense): Expense {
+    const draft = amountDrafts[row.id];
+    return draft === undefined ? row : { ...row, amount: parsePositiveBrl(draft) };
+  }
 
   async function loadHistory() {
     setHistoryLoading(true);
@@ -171,7 +177,8 @@ export default function ReceiptWorkspace({ reportId, reportName, currency, userI
   }
 
   function openSendModal(row: Expense) {
-    setSendExpense(row);
+    setAssistedError("");
+    setSendExpense(reviewedExpense(row));
     const firstReport = vexpensesContext?.reports[0];
     setSelectedReportId(firstReport?.id?.toString() || "");
     setManualReportName(firstReport?.description || "");
@@ -180,6 +187,7 @@ export default function ReceiptWorkspace({ reportId, reportName, currency, userI
   }
 
   function formatExpenseForVexpenses(row: Expense) {
+    row = reviewedExpense(row);
     return [
       `Arquivo: ${row.sourceFile}`,
       `Fornecedor: ${row.supplier || ""}`,
@@ -229,7 +237,7 @@ export default function ReceiptWorkspace({ reportId, reportName, currency, userI
   async function copyRobotPackage(rows: Expense[] = expenses) {
     if (!rows.length) return;
     try {
-      const items = await Promise.all(rows.map(buildLaunchItem));
+      const items = await Promise.all(rows.map((row) => buildLaunchItem(reviewedExpense(row))));
       const payload = {
         origem: "COMPROVA",
         destino: "VExpenses",
@@ -279,13 +287,16 @@ export default function ReceiptWorkspace({ reportId, reportName, currency, userI
   async function prepareAssistedLaunch() {
     if (!sendExpense) return;
     setSendingToVexpenses(true);
+    setAssistedError("");
     try {
-      await saveExpense(sendExpense);
-      await copyExpenseForVexpenses(sendExpense);
+      const saved = await saveExpense(sendExpense, setAssistedError);
+      if (!saved) return;
+      await copyExpenseForVexpenses(saved);
       openVexpenses();
       setNotice("Dados copiados e VExpenses aberta. Anexe o comprovante original pela plataforma.");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Não foi possível preparar o lançamento.";
+      setAssistedError(message);
       setNotice(message);
     } finally { setSendingToVexpenses(false); }
   }
@@ -421,9 +432,13 @@ export default function ReceiptWorkspace({ reportId, reportName, currency, userI
   }
 
   function updateExpense(id: string, field: keyof Expense, value: string) {
+    if (field === "amount") {
+      setAmountDrafts((current) => ({ ...current, [id]: value }));
+      return;
+    }
     setExpenses((current) => current.map((row) => row.id === id ? {
       ...row,
-      [field]: field === "amount" ? parsePositiveBrl(value) : value,
+      [field]: value,
     } : row));
   }
 
@@ -441,13 +456,22 @@ export default function ReceiptWorkspace({ reportId, reportName, currency, userI
     if (error || !data?.length) throw new Error("Esta despesa está bloqueada por um relatório enviado ou não pôde ser salva.");
   }
 
-  async function saveExpense(row: Expense) {
+  async function saveExpense(row: Expense, onError?: (message: string) => void) {
     try {
+      row = reviewedExpense(row);
       if (!hasExpenseFields(row) || !categoryOptions.includes(row.category)) throw new Error("Selecione o tipo de despesa e informe descrição e valor positivo em reais.");
       await persistExpense(row);
+      const saved = row;
+      setExpenses((current) => current.map((item) => item.id === saved.id ? { ...item, amount: saved.amount } : item));
       setNotice("Alteração salva no histórico.");
       await onRefresh();
-    } catch (error) { setNotice(error instanceof Error ? error.message : "Não foi possível salvar a despesa."); }
+      return saved;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Não foi possível salvar a despesa.";
+      setNotice(message);
+      onError?.(message);
+      return null;
+    }
   }
 
   async function deleteExpense(row: Expense) {
@@ -496,7 +520,7 @@ export default function ReceiptWorkspace({ reportId, reportName, currency, userI
 
   function copyTable() {
     const headers = ["Arquivo", "Fornecedor", "Data", "Valor", "Moeda", "Categoria", "Descrição", "Confiança", "Observações"];
-    const rows = expenses.map((row) => [row.sourceFile, row.supplier, row.date, row.amount?.toFixed(2).replace(".", ",") || "", row.currency, row.category, row.description, row.confidence, row.notes]);
+    const rows = expenses.map(reviewedExpense).map((row) => [row.sourceFile, row.supplier, row.date, row.amount?.toFixed(2).replace(".", ",") || "", row.currency, row.category, row.description, row.confidence, row.notes]);
     navigator.clipboard.writeText([headers, ...rows].map((row) => row.join("\t")).join("\n"));
     setNotice("Tabela copiada. Agora é só colar no Excel ou em outro sistema.");
   }
@@ -504,7 +528,7 @@ export default function ReceiptWorkspace({ reportId, reportName, currency, userI
   function exportCsv() {
     const rows = [
       ["Arquivo", "Fornecedor", "Data", "Valor", "Moeda", "Categoria", "Descrição", "Confiança", "Observações"],
-      ...expenses.map((row) => [row.sourceFile, row.supplier, row.date, row.amount?.toFixed(2) || "", row.currency, row.category, row.description, row.confidence, row.notes]),
+      ...expenses.map(reviewedExpense).map((row) => [row.sourceFile, row.supplier, row.date, row.amount?.toFixed(2) || "", row.currency, row.category, row.description, row.confidence, row.notes]),
     ];
     const csv = "\uFEFF" + rows.map((row) => row.map((cell) => `"${String(cell).replaceAll('"', '""')}"`).join(";")).join("\r\n");
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
@@ -592,7 +616,7 @@ export default function ReceiptWorkspace({ reportId, reportName, currency, userI
             <td className="source" title={row.sourceFile}><button className="sourceLink" onClick={() => openReceipt(row)}>{row.sourceFile}<span aria-hidden="true">↗</span></button></td>
             <td><input value={row.supplier} onChange={(e) => updateExpense(row.id, "supplier", e.target.value)} /></td>
             <td><input type="date" value={row.date} onChange={(e) => updateExpense(row.id, "date", e.target.value)} /></td>
-            <td><div className="moneyInput"><span>{row.currency === "BRL" ? "R$" : row.currency}</span><input inputMode="decimal" value={row.amount ?? ""} onChange={(e) => updateExpense(row.id, "amount", e.target.value)} /></div></td>
+            <td><div className="moneyInput"><span>{row.currency === "BRL" ? "R$" : row.currency}</span><input inputMode="decimal" value={amountDrafts[row.id] ?? String(row.amount ?? "")} onChange={(e) => updateExpense(row.id, "amount", e.target.value)} /></div></td>
             <td><select aria-label="Tipo de despesa" value={row.category} onChange={(e) => updateExpense(row.id, "category", e.target.value)}><option value="">Selecione</option>{row.category && !categoryOptions.includes(row.category) && <option disabled>{row.category}</option>}{categoryOptions.map((category) => <option key={category}>{category}</option>)}</select></td>
             <td><input value={row.description} onChange={(e) => updateExpense(row.id, "description", e.target.value)} /></td>
             <td><span className={`confidence ${row.confidence}`}>{row.confidence === "alta" ? "Alta" : row.confidence === "media" ? "Revisar" : "Baixa"}</span></td>
@@ -624,6 +648,7 @@ export default function ReceiptWorkspace({ reportId, reportName, currency, userI
             <button onClick={openVexpenses}>Abrir VExpenses</button>
           </div>
           <div className="keySafety"><span>!</span><p>A API da VExpenses não aceita anexar comprovante. Este modo prepara os dados e abre a plataforma para você anexar o arquivo original.</p></div>
+          {assistedError && <p className={styles.notice} role="alert">{assistedError}</p>}
           <button className="primary modalPrimary" onClick={prepareAssistedLaunch} disabled={sendingToVexpenses}>{sendingToVexpenses ? "Preparando…" : "Copiar dados e abrir VExpenses"}<span>→</span></button>
         </section>
       </div>}
