@@ -160,3 +160,10 @@ Histórico cronológico e cumulativo. Datas de referência em **America/Sao_Paul
 - **React/QA:** compilação e TypeScript passaram numa cópia limpa sem .env; geração estática falhou por EPERM do sandbox ao criar diretório. Repetir fora dessa restrição. Lint integral apontou setter/memoização e carregamento de equipe em effect; ajustados preservando regras e adicionando guarda contra resposta tardia de outra empresa. Lint repetido em andamento.
 - **Continuidade:** captura anterior foi bloqueada pelo hash porque um agente alterou arquivo durante a cópia; nenhum commit/push saiu dessa captura. Versão remota ainda cf69c90; ensaio isolado preservado. Foram acrescentados dispatcher, teste browser e guia de ativação ao manifesto (67 caminhos).
 - **Limites:** build completo, smoke e browser ainda pendentes. Nenhum e-mail real, serviço provisionado, dado importado, SQL remoto ou produção alterados. Provedor/agendador exigirão configuração/autorização; fila não implica entrega real.
+
+## 2026-11-17 16:09:10 -03:00 — Build V2 e suíte final aprovados
+
+- **Código:** dependência explícita do setter no callback resolveu o último erro de lint sem desativar regra. Guarda de resposta tardia protege troca de empresa. Texto de preferências distingue confirmação transacional de aprovação dos avisos opcionais ainda não implementados.
+- **Validação:** 13/13 testes puros/SQL/mocks combinados passaram; build Webpack/TypeScript com configuração fictícia e fontes simuladas passou, gerando 21 páginas. Lint integral app/lib/tests no QA passou sem avisos. Fonte OneDrive preservada, sem apagar .next antigo do usuário.
+- **Ambiente:** build anterior EPERM resolvido por execução autorizada fora do sandbox. Smoke/browser tiveram restrições de localhost/Chrome; repetir fora delas. Smoke também expôs abort de 500ms no corpo da resposta; tempo do fixture ajustado para 5s/limite global60s. Browser ainda em execução; rebuild dos últimos ajustes pendente.
+- **Git:** snapshot `5e6313d` confirmado só em codex/continuity, main b36af53 preservada. Nada aplicado no banco compartilhado ou na produção.

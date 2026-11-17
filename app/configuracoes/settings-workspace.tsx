@@ -57,7 +57,7 @@ export default function SettingsWorkspace() {
     setCompanies(entries);
     setCompanyId(entries.some((entry) => entry.company.id === preferredCompanyId) ? preferredCompanyId : (entries[0]?.company.id ?? ""));
     setDraftOverride(null);
-  }, []);
+  }, [setDraftOverride]);
 
   useEffect(() => {
     let alive = true;

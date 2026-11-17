@@ -10,7 +10,7 @@ const profileKey = "comprova_display_name";
 const preferencesKey = "comprova_email_preferences";
 const categories = [
   { key: "approvalRequests", label: "Solicitações de aprovação", description: "Quando um relatório chegar para sua análise." },
-  { key: "reportUpdates", label: "Andamento dos relatórios", description: "Quando um relatório for aprovado, devolvido ou pago." },
+  { key: "reportUpdates", label: "Andamento dos relatórios", description: "Outros avisos sobre relatórios devolvidos ou pagos." },
   { key: "reminders", label: "Lembretes", description: "Avisos sobre despesas e relatórios pendentes." },
 ] as const;
 type PreferenceKey = (typeof categories)[number]["key"];
@@ -250,7 +250,7 @@ function AccountPanel({ section, user, email, companyId, onUpdate }: { section: 
     </>}
     {section === "preferencias-email" && <>
       <h2>Preferências de e-mail</h2>
-      <p className="muted">Escolha quais avisos quer receber. A preferência fica salva, mas o envio automático de e-mails ainda não está ativo.</p>
+      <p className="muted">A confirmação de aprovação é uma comunicação transacional, enviada quando o serviço de e-mail da empresa está ativo. As preferências abaixo ficam salvas para os demais avisos opcionais, cujo envio ainda depende de implementação e configuração.</p>
       <form className="compactForm" onSubmit={(event) => void saveMetadata(event, { [preferencesKey]: prefs }, "Preferências salvas.")}>
         <fieldset className="settingsAccountChoices">
           <legend>Avisos</legend>

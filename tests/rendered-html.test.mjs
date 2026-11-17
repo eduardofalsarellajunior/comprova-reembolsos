@@ -25,7 +25,7 @@ function assertRedirect(response, base, destination) {
   assert.equal(new URL(location, base).href, new URL(destination, base).href);
 }
 
-test("INEPAD Reembolso abre em Relatórios e mantém as operações autenticadas", { timeout: 35000 }, async (t) => {
+test("INEPAD Reembolso abre em Relatórios e mantém as operações autenticadas", { timeout: 60000 }, async (t) => {
   const port = await ephemeralPort();
   const base = `http://127.0.0.1:${port}`;
   const server = spawn(process.execPath, [next, "start", "-H", "127.0.0.1", "-p", String(port)], { cwd: root, stdio: ["ignore","pipe","pipe"], windowsHide: true });
@@ -36,7 +36,7 @@ test("INEPAD Reembolso abre em Relatórios e mantém as operações autenticadas
   let response;
   for (let i = 0; i < 40; i++) {
     if (server.exitCode !== null) break;
-    try { response = await fetch(base + "/login", { redirect: "manual", signal: AbortSignal.timeout(500) }); break; } catch { await sleep(250); }
+    try { response = await fetch(base + "/login", { redirect: "manual", signal: AbortSignal.timeout(5000) }); break; } catch { await sleep(250); }
   }
   assert.equal(response?.status, 200, `Servidor local não iniciou ou respondeu com erro:\n${log}`);
   assert.match(await response.text(), /INEPAD Reembolso/);
@@ -63,6 +63,7 @@ test("INEPAD Reembolso abre em Relatórios e mantém as operações autenticadas
     ["POST", "/api/analyze"], ["POST", `/api/reports/${id}/expenses`],
     ["POST", `/api/reports/${id}/submit`], ["POST", `/api/approvals/${id}/decision`],
     ["POST", `/api/reports/${id}/paid`],
+    ["POST", "/api/team-import"], ["POST", "/api/internal/approval-emails"],
   ]) {
     const api = await fetch(base + path, { method });
     assert.equal(api.status, 401, `${method} ${path}`);

@@ -10,15 +10,18 @@ import { spawn } from "node:child_process";
 import { once } from "node:events";
 import { createServer } from "node:http";
 import { mkdtemp, readdir, realpath, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { isAbsolute, join, relative, resolve } from "node:path";
 import { setTimeout as pause } from "node:timers/promises";
 
 assert.ok(process.env.QA_APP_ROOT && isAbsolute(process.env.QA_APP_ROOT), "QA_APP_ROOT deve ser um diretório absoluto de build descartável.");
 const qaRoot = await realpath(resolve(process.env.QA_APP_ROOT));
 const temporaryRoot = await realpath(tmpdir());
-const relativeRoot = relative(temporaryRoot, qaRoot);
-assert.ok(relativeRoot && !relativeRoot.startsWith("..") && !isAbsolute(relativeRoot), "Por segurança, QA_APP_ROOT deve estar dentro do Temp do sistema.");
+const temporaryRoots = [temporaryRoot];
+// The Codex Windows sandbox redirects os.tmpdir; a parent QA build can live in
+// the verified native Windows Temp instead. Neither path is ever deleted here.
+if (process.platform === "win32") temporaryRoots.push(await realpath(join(homedir(), "AppData", "Local", "Temp")));
+assert.ok(temporaryRoots.some((root) => { const scopedPath = relative(root, qaRoot); return scopedPath && !scopedPath.startsWith("..") && !isAbsolute(scopedPath); }), "Por segurança, QA_APP_ROOT deve estar dentro do Temp do sistema.");
 assert.ok(!(await readdir(qaRoot)).some((name) => /^\.env(?:\..*)?$/.test(name) && name !== ".env.example"), "A cópia QA não deve conter arquivos .env.");
 const mockPort = Number(process.env.QA_SUPABASE_PORT || 56443);
 assert.ok(Number.isInteger(mockPort) && mockPort > 1024 && mockPort < 65536, "Porta local inválida.");
@@ -149,6 +152,7 @@ async function waitFor(check, label, timeout = 18000) {
   throw new Error(`Tempo esgotado: ${label}`);
 }
 let ws;
+let inspectBrowser;
 try {
   const chromePort = await waitFor(async () => chromeLog.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)/)?.[1], "porta de depuração Chromium");
   const tabs = await (await fetch(`http://127.0.0.1:${chromePort}/json/list`)).json();
@@ -176,6 +180,7 @@ try {
     }
   });
   const evaluate = async (expression) => { const response = await cmd("Runtime.evaluate", { expression, returnByValue: true, awaitPromise: true }); if (response.exceptionDetails) throw new Error(response.exceptionDetails.exception?.description || response.exceptionDetails.text); return response.result.value; };
+  inspectBrowser = () => evaluate("({url:location.href,text:document.body.innerText.slice(0,900),email:document.querySelector('input[type=email]')?.value,submitDisabled:document.querySelector('form.authCard button.primary')?.disabled})");
   const present = (css) => evaluate(`Boolean(document.querySelector(${JSON.stringify(css)}))`);
   const click = (css) => evaluate(`document.querySelector(${JSON.stringify(css)}).click()`);
   const bodyIncludes = (value) => evaluate(`document.body.textContent.includes(${JSON.stringify(value)})`);
@@ -190,6 +195,7 @@ try {
   await waitFor(async () => (await fetch(origin + "/login")).ok, "Next local pronto");
   await cmd("Page.navigate", { url: origin + "/login" });
   await waitFor(() => present('input[type="password"]'), "login fictício");
+  await waitFor(() => evaluate("Object.keys(document.querySelector('input[type=email]')).some((key) => key.startsWith('__reactProps$') && typeof document.querySelector('input[type=email]')[key].onChange === 'function')"), "hidratação do formulário de login");
   await fill('input[type="email"]', user.email); await fill('input[type="password"]', "offline-fixture-only");
   await click("form.authCard button.primary");
   await waitFor(() => present('nav[aria-label="Menu principal"]'), "sessão local simulada");
@@ -213,6 +219,7 @@ try {
   await fillLabel("Banco", "Banco QA atualizado", "document.querySelector('dialog')");
   await clickText("dialog button", "Salvar cadastro");
   await waitFor(async () => rpcCalls.some((call) => call.name === "update_company_member_profile"), "gravação fictícia do perfil por RPC");
+  await waitFor(() => bodyIncludes("Cadastro salvo."), "confirmação visual do perfil salvo");
   assert.equal(rest.company_member_profiles.find((row) => row.member_id === employeeId).bank, "Banco QA atualizado");
   await waitFor(() => bodyIncludes("Quem aprova os relatórios deste membro"), "permissões de aprovação");
   assert.equal(await evaluate("Array.from(document.querySelectorAll('dialog select option')).filter((node) => node.parentElement.parentElement.textContent.startsWith('Adicionar aprovador')).some((node) => node.textContent.includes('Pessoa fictícia Normal'))"), false, "Sem autoaprovação no seletor.");
@@ -232,7 +239,7 @@ try {
   await waitFor(() => present('dialog li[aria-current="step"]'), "etapa resumo");
   assert.ok(await evaluate("document.querySelector('dialog li[aria-current=step]').textContent.includes('Resumo')"));
   await clickText("dialog button", "Salvar projeto");
-  await waitFor(() => bodyIncludes("Projeto novo fictício"), "projeto criado no mock");
+  await waitFor(() => evaluate("!document.querySelector('dialog[open]') && document.body.textContent.includes('Projeto novo fictício')"), "projeto criado no mock e wizard fechado");
   assert.equal(rpcCalls.find((call) => call.name === "save_managed_project").args.p_member_ids.length, 1);
   await evaluate("Array.from(document.querySelectorAll('button')).find((node) => node.textContent.includes('Projetos inativos')).click()");
   await waitFor(() => bodyIncludes("Projeto fictício inativo"), "aba projetos inativos");
@@ -268,6 +275,14 @@ try {
   await evaluate("window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))");
   assert.ok(await present(expand), "Escape fecha o menu móvel.");
   await screenshot("configuracoes-mobile.png");
+  await navigate("membros-equipe");
+  await waitFor(() => bodyIncludes("Pessoa fictícia Normal"), "equipe no celular");
+  assert.ok(await evaluate("document.documentElement.scrollWidth <= window.innerWidth + 1"), "Tabela da equipe não amplia a página no celular.");
+  await evaluate("Array.from(document.querySelectorAll('tbody tr')).find((row) => row.textContent.includes('normal@example.test')).querySelector('button').click()");
+  await waitFor(() => present("dialog[open]"), "perfil no celular");
+  assert.ok(await evaluate("document.querySelector('dialog').getBoundingClientRect().left >= 0 && document.querySelector('dialog').getBoundingClientRect().right <= innerWidth + 1"), "Modal de cadastro cabe na tela móvel.");
+  await screenshot("equipe-modal-mobile.png");
+  await click('button[aria-label="Fechar cadastro"]');
 
   rest.company_members[0].role = "employee";
   await cmd("Emulation.setDeviceMetricsOverride", { width: 1366, height: 900, deviceScaleFactor: 1, mobile: false });
@@ -287,6 +302,7 @@ try {
   console.log(`Capturas locais fictícias: ${artifacts}`);
 } catch (error) {
   console.error(error.message);
+  if (inspectBrowser) console.error("Estado fictício do browser:", await inspectBrowser().catch(() => "indisponível"));
   console.error(`Rotas locais simuladas: ${[...routesSeen].join(", ")}`);
   console.error(`Servidor local: ${appLog.slice(-1600)}`);
   console.error(`Chromium: ${chromeLog.slice(0, 400)}`);
