@@ -81,3 +81,35 @@ Histórico cronológico e cumulativo. Datas de referência em **America/Sao_Paul
 - **Execução:** somente a migration versionada `20261116181505_comprova_organization_settings.sql` em `xammlyxakxrysjrzdbeq` / `comprova`; registro remoto `20261117160746`. Sem migração em lote.
 - **Resultado:** Administrativo 8 cargos, Comercial 6, Operações 9; três tabelas com RLS, seis políticas e dois RPCs conferidos. Três buckets do COMPROVA permaneceram privados, a lista de namespaces não mudou e os vínculos da equipe mantiveram a contagem. Nenhuma alteração em Auth ou Storage.
 - **Próxima etapa:** enviar o release de código `a99e210` e este registro à `main` e validar o deploy no domínio. Em caso de problema com o front, preservar o banco novo e usar a versão anterior do app; não desfazer DDL de forma destrutiva.
+
+## 2026-11-17 — INEPAD Reembolso em produção
+
+- **GitHub:** push autorizado em fast-forward; `main` confirmada em `b36af53f175190ef362f9a7a570b656a093a07a1`. O commit `a99e210` traz a implementação; o commit de ponta acrescenta somente o registro da migração.
+- **Vercel:** `dpl_7VFpffhuCx8UDiVB3Jox5mCd6Xxn` em READY, produção, branch `main`, associado a `comprova-reembolsos.vercel.app`. Build/ativação observados sem intervenção no domínio, Vercel ou configuração de variáveis.
+- **Verificação sem sessão:** `/` deu 307 para `/relatorios`; `/login`, `/relatorios`, `/configuracoes`, `/aprovacoes` e a logo deram 200; `GET /api/reports` e `POST /api/analyze` deram 401. A busca de erros de runtime nos caminhos testados não retornou registros na janela consultada.
+- **Limites:** não exercitamos login real, OCR em produção, aprovação, VExpenses ou Conta Azul. Esta confirmação pós-deploy foi gravada no checkout de origem depois do push para não disparar um novo deploy só de documentação.
+
+## 2026-11-17 14:57:27 -03:00 — Snapshot preventivo das configurações em desenvolvimento
+
+- **Base/ambiente:** Local, Windows/PowerShell; checkout principal `codex/comprova-v1-preview` em `477aecf`, sem novos commits na origem. A produção publicada é `b36af53`. Nenhuma migração ou transferência de dados desta etapa foi executada remotamente.
+- **Código parcial preservado:** componentes de projetos/catálogos/políticas, perfis/importação CSV, conversor offline do XLS, validação de relatório/BRL e remoção parcial de opções antigas. Faltam a UI de equipe, adaptação de Meus dados, integração de validações/e-mail e testes completos; existem referências de imports não resolvidas.
+- **Interrupção:** três subagentes reportaram limite de uso e encerraram antes de concluir. Não há medição de saldo/consumo da conta. O trabalho parcial precisa ser guardado antes de novas microetapas.
+- **Planilha:** inventário privado de 22 cadastros com e-mails distintos e papel mapeado; nenhuma linha real copiada para o repositório. Nenhuma associação de projeto/aprovador foi inferida.
+
+## 2026-11-17 14:57:27 -03:00 — Protocolo automático de continuidade
+
+- **Pedido:** adotar checkpoints preventivos por microetapa, meta de cinco minutos e autorização automática de commit/push apenas em `codex/continuity`. Esta configuração não modifica funções da aplicação; o código parcial da tarefa anterior é apenas preservado no snapshot.
+- **Preparação:** ler quatro documentos, verificar branch/índice/worktrees e refs remotos; criar branch em clone separado da `main` confirmada, sem mudar a árvore suja de origem. Bloqueio de deploy só para a branch de continuidade.
+- **Segurança:** allowlist por caminhos, revisão do diff, varredura de segredos, hashes das cópias e rechecagem do remoto antes do push. Sem force, merge, reset, produção, credenciais ou XLS real no commit.
+- **Verificações:** registrar o teste de sintaxe do script, a comparação de hashes, o commit/push e a confirmação do SHA nas etapas seguintes. Testes funcionais da configuração V2 não foram executados; resultados antigos do redesign não validam esse snapshot.
+
+## 2026-11-17 15:01:10 -03:00 — Ensaio de continuidade antes do push
+
+- **Resultados:** sintaxe PowerShell e 21 links internos conferidos; `tests/team-import.test.mjs` passou 3/3 com dados fictícios. Manifesto contém 55 caminhos explícitos e nenhuma planilha/dado privado real.
+- **Proteções observadas:** o primeiro ensaio bloqueou a própria definição genérica de chave privada no scanner; a assinatura foi tornada específica. O segundo bloqueou linhas vazias finais em dois arquivos; ajustadas somente essas linhas, sem mudar lógica da aplicação.
+- **Estado:** clones de ensaio preservados para inspeção; nenhuma mudança de branch/índice na origem, nenhum push ou deploy até essa etapa. Repetir o ensaio após a revisão e confirmar a referência remota antes de publicar.
+
+## 2026-11-17 15:01:49 -03:00 — Ensaio concluído, publicação autorizada preparada
+
+- **Teste local concluído:** o publisher criou `5c1040cee81f88d12e809ccd2a59d3df75fe132b` somente em clone temporário (sem `-Publish`). Os 55 arquivos foram copiados e conferidos por hash; 29 diferem da `main`; diff staged sem erros. O índice e a branch de origem não foram alterados.
+- **Próxima operação:** repetir a mesma captura com `-Publish`, revisar a ponta remota antes/depois e confirmar que a Vercel não criou deploy da branch. O SHA final pode diferir do ensaio porque este registro também será incluído.

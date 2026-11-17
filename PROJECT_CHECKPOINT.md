@@ -1,10 +1,39 @@
 # INEPAD Reembolso — checkpoint de retomada
 
+## Checkpoint atual — continuidade e Configurações V2 (incompleto)
+
+- **Atualizado:** 2026-11-17 15:01:49 -03:00, America/Sao_Paulo.
+- **Ambiente:** Local/Windows, checkout principal do COMPROVA; não é Cloud nem worktree. A pasta inicial SDR por Voz não pertence a este produto.
+- **Objetivo:** concluir Configurações V2 sem perder o trabalho entre contas. Nesta microetapa, implementar a continuidade automática, sem alterar funcionalidades.
+- **Última etapa concluída:** regra permanente, manifesto de 55 arquivos e script testados; commit isolado de ensaio criado com sucesso. Sintaxe PowerShell, links, hashes e `git diff --cached --check` conferidos; três testes puros do importador passaram.
+- **Em execução:** primeiro snapshot na branch `codex/continuity`. Na revisão-base deste documento essa branch ainda não existia; confirmar a ponta após o push. Conteúdo parcial, não homologado e não liberado para deploy.
+- **Git:** origem `codex/comprova-v1-preview`, HEAD `477aecfa6563e8e6692ce0624133a7be6ad370ac`; `main` remota `b36af53f175190ef362f9a7a570b656a093a07a1`. O snapshot parte da `main` num clone separado; não usar a `main` local antiga. Autorização automática restrita a `codex/continuity`.
+- **Arquivos:** lista explícita em [scripts/continuity-files.json](scripts/continuity-files.json). Inclui os quatro documentos, script/allowlist, componentes de Configurações, validação de relatório/rotas, importador CSV/conversor XLS, testes e migrations novas. Não houve exclusão nesta etapa.
+- **Decisões:** BRL para novas operações sem converter históricos; manter tabelas/fluxos antigos para o histórico; nomes de tipo Normal/Intermediário/Administrador com compatibilidade de papéis internos; sem elevar usuários existentes por importação ambígua; perfis privados por empresa. Estas decisões ainda exigem testes.
+- **Inventário privado:** XLS original no computador do usuário, 22 e-mails distintos; não é incluído em Git nem no snapshot. O conversor não contém os dados. Projetos, aprovadores e campos ausentes não podem ser adivinhados.
+- **Testes:** `git diff --check` da origem sem erro (avisos LF/CRLF); `node --test tests/team-import.test.mjs` passou 3/3 com dados fictícios. Sintaxe do publisher e links dos quatro documentos conferidos. O teste de 18 seções antigo precisa ser atualizado. Build completo ainda não executado e há imports ausentes conhecidos.
+- **Interrupção/risco:** subagentes de equipe, projetos e políticas pararam por limite informado pela ferramenta. Não há saldo da conta verificado. Não dependemos de uma última execução para salvamento.
+- **Próxima ação exata:** confirmar o SHA da branch no GitHub e abrir um clone limpo dela na conta que vai continuar. Releia os quatro documentos; comece por restaurar a compilação: criar `app/configuracoes/team-settings.tsx` (contrato abaixo), adaptar `AccountSettings` para `companyId` e rodar TypeScript/lint. Depois testar migrations e UI V2 em banco descartável; completar e-mail e validar importação com o arquivo privado reanexado. Não aplicar migrations V2 em produção nem fazer merge/deploy sem nova autorização.
+- **Contratos para integração:** `TeamSettings({ companyId, ownerId, userId, members, busy, onToggle, onRefresh })`; `AccountSettings({ section, userId, email, companyId? })`; `ProjectSettings({ companyId, members })`; `ExpenseCatalogSettings({ companyId, kind })`; `ExpensePolicySettings({ companyId, admin })`; `MileagePolicySettings({ companyId, admin })`.
+- **Migrations V2:** `20261117164803_comprova_policy_catalog_v2.sql`, `20261117164815_comprova_member_profiles_import.sql`, `20261117164832_comprova_project_members_and_approvals.sql` contêm código parcial/revisão pendente; `20261117165624_comprova_reporting_v2_mail.sql` está vazio. Nenhuma aplicada. Sem serviço de e-mail/configuração de remetente implementado.
+- **Produção preservada:** Vercel `dpl_7VFpffhuCx8UDiVB3Jox5mCd6Xxn`, revisão `b36af53`, banco só com a migration organizacional previamente aprovada. A configuração de continuidade não acessa o banco.
+- **Sincronização:** o primeiro commit deve levar este documento e o código parcial juntos, além da regra de não-deploy da branch. Um arquivo local não prova push. Compare `git ls-remote origin refs/heads/codex/continuity` e o SHA que a origem entregou.
+
+### Próximos checkpoints e retomada
+
+1. Durante a sessão ativa, termine uma microetapa, atualize este bloco, acrescente eventos relevantes ao log e revise os caminhos da allowlist; não aguarde aviso de créditos.
+2. Consulte o SHA remoto atual e compare com o último recebido. No Windows, execute `scripts/sync-continuity.ps1 -ExpectedRemoteSha <SHA> -Publish` (somente a primeira criação usa `absent`). Não use um SHA recém-lido para esconder divergência; primeiro compare o código da outra conta.
+3. Confirme o SHA remoto após o push e retome o desenvolvimento sem pedir confirmação rotineira. Registre falha de rede/permissão; nunca chame um commit local de sincronizado.
+4. Na outra conta Local: clone o repositório, selecione `codex/continuity`, confira SHA e arquivos, e retome a próxima ação acima. Em Cloud: selecione essa branch ao abrir a tarefa; cada clone pode ser isolado. Nenhum trabalho ou arquivo pessoal é herdado de outro chat automaticamente.
+5. Se houve mudança concorrente, preserve as duas pontas e pause apenas o push. Não faça merge/rebase/force para destravar. O procedimento não instala temporizador, serviço ou tarefa agendada; cinco minutos é uma meta operacional.
+
+## Checkpoint anterior — publicação do redesign (preservado)
+
 - **Data/fuso:** 17/11/2026, America/Sao_Paulo.
 - **Responsável atual:** conta de origem / Local (alias); conta de destino ainda não assumiu a tarefa.
 - **Tarefa atual:** publicação do redesign INEPAD Reembolso em produção.
-- **Última etapa concluída:** candidato de código `a99e210a81bd32979fe78e7f12fbaf2184df8391` verificado e migration de Configurações aplicada em produção após aprovação; histórico Supabase `20261117160746`.
-- **Estado de transferência:** o handoff documental anterior permanece na [branch codex/comprova-handoff](https://github.com/eduardofalsarellajunior/comprova-reembolsos/tree/codex/comprova-handoff), SHA `2ae7d6a2e7e8d9df3b44e574c297fbaf0e85cadd`. Ele não inclui a implementação de Configurações nem o redesign.
+- **Última etapa concluída:** redesign e Configurações publicados e conferidos no domínio de produção; migration no histórico Supabase `20261117160746`.
+- **Estado de transferência:** a implementação e a documentação de release estão na `main`, SHA `b36af53f175190ef362f9a7a570b656a093a07a1`. A antiga branch `codex/comprova-handoff` é só o handoff inicial.
 
 ## Ponto de partida observado
 
@@ -19,7 +48,7 @@
 
 **Da entrega documental anterior:** `AGENTS.md`, `PROJECT_STATUS.md`, `PROJECT_LOG.md`, `PROJECT_CHECKPOINT.md`. Na branch de transferência, `vercel.json` desabilita apenas o deploy automático de `codex/comprova-handoff`; a regra não muda as demais branches.
 
-**Da tarefa anterior (Configurações), ainda só na árvore de trabalho:**
+**Da tarefa anterior (Configurações), incluídos neste release:**
 
 - `app/configuracoes/`: `page.tsx`, `sections.ts`, `settings-workspace.tsx`, `settings.css`, `account-settings.tsx`, `department-settings.tsx`, `department-settings.module.css`, `operational-settings.tsx`.
 - `app/page.tsx`, `app/empresa/page.tsx`, `app/relatorios/page.tsx`, `app/aprovacoes/page.tsx`, `types/supabase-js.d.ts`.
@@ -30,12 +59,13 @@
 ## Testes, lacunas e próxima ação
 
 - **Neste handoff:** origem, branches e árvore verificadas. O commit de transferência passou em `git diff --cached --check`; os quatro documentos e os 18 links relativos foram validados. No checkout principal, o índice continuou vazio. Não executados build ou testes funcionais: alteração documental com uma regra de não-deploy na branch de transferência.
-- **Configurações, teste anterior:** build Next/TypeScript, smoke, ESLint focado, suíte de banco descartável e teste de navegação passaram. Faltam a aplicação aprovada da migration, o deploy aprovado e a validação com perfis/contas reais após a publicação. A produção não foi revalidada nesta sessão.
+- **Configurações, teste anterior:** build Next/TypeScript, smoke, ESLint focado, suíte de banco descartável e teste de navegação passaram. Falta a validação com perfis/contas reais em uma sessão autenticada.
 - **Redesign, nesta tarefa:** build Webpack com TypeScript e fontes simuladas, ESLint de `app` e do teste alterado, smoke HTTP e teste das 18 seções passaram. Chromium em desktop e celular validou login fictício, busca em Configurações, menu recolhível e upload de comprovante fictício, OCR simulado, revisão e vínculo pelo endpoint real contra um banco simulado. O relatório ficou em rascunho. Não houve sessão Office 365 real, consumo de OCR real nem teste em produção.
-- **Próxima ação exata:** confirmar ponta na `main`, deployment Vercel em READY e domínio com o redesign (redirect, marca, páginas e APIs sem sessão). Não apresentar smoke anônimo como teste de Office 365 ou OCR reais.
+- **Próxima ação exata:** abrir o [INEPAD Reembolso de produção](https://comprova-reembolsos.vercel.app/), entrar e conferir **Configurações → Departamentos e cargos** e **Relatórios** sem enviar dados de teste ao fluxo de aprovação. Para retomar desenvolvimento de outra conta, usar um clone limpo da `main`, confirmar o SHA e preservar o trabalho local antigo.
 - **Banco verificado:** `20261116181505_comprova_organization_settings.sql` no schema `comprova` de `xammlyxakxrysjrzdbeq`. RLS nas três tabelas, seis políticas com checagem de vínculo/admin, RPCs sem acesso anônimo, 3 departamentos/23 cargos na única empresa elegível e buckets privados mantidos.
+- **Produção confirmada:** `dpl_7VFpffhuCx8UDiVB3Jox5mCd6Xxn`, READY e ativo no domínio no SHA `b36af53f175190ef362f9a7a570b656a093a07a1`. Smoke HTTP aprovado (307 → Relatórios, quatro páginas com 200, imagem PNG carregada e duas APIs com 401 sem sessão). Office 365, OCR real e perfis reais não foram exercitados.
 - **Recuperação:** referência anterior `477aecf` / deploy `dpl_Egrw7WncJf6xZoapmVBo2Wm9wMUx`. Se o front precisar voltar, preservar dados e tabelas novas; não reverter o banco compartilhado de forma destrutiva. A RPC de convites existente passa a rejeitar convite de e-mail já cadastrado, sem sobrescrever permissões.
-- **Candidato de release:** `a99e210` mais o registro documental desta migração, preparados em clone separado. Pai do candidato `477aecf`, 35 arquivos, sem comprovantes, capturas, scripts locais de robô ou credenciais. O checkout de origem não foi trocado de branch.
+- **Release:** `a99e210` mais o registro documental da migração, preparados em clone separado e publicados sem force. Pai do candidato `477aecf`, 35 arquivos, sem comprovantes, capturas, scripts locais de robô ou credenciais. O checkout de origem não foi trocado de branch. Esta confirmação pós-deploy foi acrescentada localmente.
 
 ## Transferência e retomada
 

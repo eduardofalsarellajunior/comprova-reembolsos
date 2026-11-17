@@ -1,7 +1,8 @@
 "use client";
 
 import { type ChangeEvent, type DragEvent, useMemo, useRef, useState } from "react";
-import { categories, type Expense } from "@/lib/expenses";
+import type { Expense } from "@/lib/expenses";
+import { hasExpenseFields, parsePositiveBrl, validExpenseDescription } from "@/lib/report-validation";
 import { DOCUMENTS_BUCKET } from "@/lib/supabase/config";
 import { api, supabase } from "@/lib/workspace-browser";
 import styles from "./receipt-workspace.module.css";
@@ -81,25 +82,20 @@ function mapExpense(row: ExpenseRow, receipt: ReceiptSummary): Expense {
   };
 }
 
-function parseReceiptAmount(value: string): number | null {
-  if (!/^\d+(?:[.,]\d{1,2})?$/.test(value.trim())) return null;
-  const amount = Number(value.trim().replace(",", "."));
-  return Number.isFinite(amount) && amount > 0 ? amount : null;
-}
-
 type ReceiptWorkspaceProps = {
   reportId: string;
   reportName: string;
   currency: string;
   userId: string;
   knownLinkedIds: ReadonlySet<string>;
+  categoryOptions: readonly string[];
   disabled: boolean;
   initialOpen?: boolean;
   onBusyChange: (busy: boolean) => void;
   onRefresh: () => Promise<void>;
 };
 
-export default function ReceiptWorkspace({ reportId, reportName, currency, userId, knownLinkedIds, disabled, initialOpen, onBusyChange, onRefresh }: ReceiptWorkspaceProps) {
+export default function ReceiptWorkspace({ reportId, reportName, currency, userId, knownLinkedIds, categoryOptions, disabled, initialOpen, onBusyChange, onRefresh }: ReceiptWorkspaceProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<PendingFile[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -385,11 +381,11 @@ export default function ReceiptWorkspace({ reportId, reportName, currency, userI
     const rows = selected.map((row) => ({
       ...row,
       supplier: row.supplier.trim(),
-      amount: parseReceiptAmount(amountDrafts[row.id] ?? String(row.amount ?? "")),
+      amount: parsePositiveBrl(amountDrafts[row.id] ?? String(row.amount ?? "")),
     }));
-    const invalid = rows.find((row) => !row.supplier || !row.date || !row.category || row.amount === null);
+    const invalid = rows.find((row) => !row.supplier || !row.date || !categoryOptions.includes(row.category) || row.amount === null || !validExpenseDescription(row.description));
     if (invalid) {
-      setNotice(`Confira fornecedor, data, categoria e valor de “${invalid.sourceFile}”, ou desmarque a despesa.`);
+      setNotice(`Confira fornecedor, data, tipo de despesa, descrição e valor positivo em reais de “${invalid.sourceFile}”, ou desmarque a despesa.`);
       return;
     }
     setProcessing(true);
@@ -427,7 +423,7 @@ export default function ReceiptWorkspace({ reportId, reportName, currency, userI
   function updateExpense(id: string, field: keyof Expense, value: string) {
     setExpenses((current) => current.map((row) => row.id === id ? {
       ...row,
-      [field]: field === "amount" ? (value === "" ? null : Number(value.replace(",", "."))) : value,
+      [field]: field === "amount" ? parsePositiveBrl(value) : value,
     } : row));
   }
 
@@ -447,6 +443,7 @@ export default function ReceiptWorkspace({ reportId, reportName, currency, userI
 
   async function saveExpense(row: Expense) {
     try {
+      if (!hasExpenseFields(row) || !categoryOptions.includes(row.category)) throw new Error("Selecione o tipo de despesa e informe descrição e valor positivo em reais.");
       await persistExpense(row);
       setNotice("Alteração salva no histórico.");
       await onRefresh();
@@ -561,8 +558,8 @@ export default function ReceiptWorkspace({ reportId, reportName, currency, userI
               <label>Fornecedor<input maxLength={160} value={row.supplier} disabled={locked || linked} onChange={(event) => updateExpense(row.id, "supplier", event.target.value)} /></label>
               <label>Data<input type="date" value={row.date} disabled={locked || linked} onChange={(event) => updateExpense(row.id, "date", event.target.value)} /></label>
               <label>Valor ({row.currency})<input inputMode="decimal" value={amountText} disabled={locked || linked} onChange={(event) => setAmountDrafts((current) => ({ ...current, [row.id]: event.target.value }))} /></label>
-              <label>Categoria<select value={row.category} disabled={locked || linked} onChange={(event) => updateExpense(row.id, "category", event.target.value)}>{Array.from(new Set([...categories, row.category])).map((item) => <option key={item}>{item}</option>)}</select></label>
-              <label className={styles.full}>Descrição<input maxLength={1000} value={row.description} disabled={locked || linked} onChange={(event) => updateExpense(row.id, "description", event.target.value)} /></label>
+              <label>Tipo de despesa<select required value={row.category} disabled={locked || linked} onChange={(event) => updateExpense(row.id, "category", event.target.value)}><option value="">Selecione</option>{row.category && !categoryOptions.includes(row.category) && <option disabled>{row.category}</option>}{categoryOptions.map((item) => <option key={item}>{item}</option>)}</select></label>
+              <label className={styles.full}>Descrição da despesa<input required maxLength={1000} value={row.description} disabled={locked || linked} onChange={(event) => updateExpense(row.id, "description", event.target.value)} /></label>
             </div>
             {row.notes && <p className="muted">{row.notes}</p>}
           </div>;
@@ -596,7 +593,7 @@ export default function ReceiptWorkspace({ reportId, reportName, currency, userI
             <td><input value={row.supplier} onChange={(e) => updateExpense(row.id, "supplier", e.target.value)} /></td>
             <td><input type="date" value={row.date} onChange={(e) => updateExpense(row.id, "date", e.target.value)} /></td>
             <td><div className="moneyInput"><span>{row.currency === "BRL" ? "R$" : row.currency}</span><input inputMode="decimal" value={row.amount ?? ""} onChange={(e) => updateExpense(row.id, "amount", e.target.value)} /></div></td>
-            <td><select value={row.category} onChange={(e) => updateExpense(row.id, "category", e.target.value)}>{categories.map((category) => <option key={category}>{category}</option>)}</select></td>
+            <td><select aria-label="Tipo de despesa" value={row.category} onChange={(e) => updateExpense(row.id, "category", e.target.value)}><option value="">Selecione</option>{row.category && !categoryOptions.includes(row.category) && <option disabled>{row.category}</option>}{categoryOptions.map((category) => <option key={category}>{category}</option>)}</select></td>
             <td><input value={row.description} onChange={(e) => updateExpense(row.id, "description", e.target.value)} /></td>
             <td><span className={`confidence ${row.confidence}`}>{row.confidence === "alta" ? "Alta" : row.confidence === "media" ? "Revisar" : "Baixa"}</span></td>
             <td><button className="sendButton" onClick={() => openSendModal(row)}>Assistir</button></td>
