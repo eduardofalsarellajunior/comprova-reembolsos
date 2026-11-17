@@ -56,6 +56,8 @@ Este repositório é o **INEPAD Reembolso** (antigo COMPROVA), `eduardofalsarell
 
 Esta seção especifica a autorização para checkpoints; prevalece sobre trechos anteriores que pedem uma nova confirmação para cada push de continuidade.
 
+Prompt reutilizável para iniciar a retomada em qualquer conta: [PROMPT-RETOMADA.md](PROMPT-RETOMADA.md). Ele não fixa SHA nem substitui a leitura do checkpoint mais recente.
+
 - Antes de trabalhar, confira a ponta remota de `codex/continuity`, leia os quatro documentos e verifique o código. Não dependa das conversas da outra conta. Identifique Local, worktree ou Cloud e a pasta/branch reais.
 - Divida tarefas em microetapas verificáveis, preferencialmente de cerca de cinco minutos. Ao terminar cada uma, ou ao perceber esse intervalo desde o último registro, atualize o checkpoint **antes** de começar a próxima. Registre preventivamente antes de comandos longos e imediatamente diante de interrupção ou alerta confiável de limite. Não invente saldo de créditos.
 - Campos obrigatórios: data/hora e fuso, objetivo, etapa concluída, etapa em execução, arquivos criados/modificados/removidos, decisões, testes e resultados reais, erros/riscos, próxima ação exata, branch/SHA e estado da sincronização.

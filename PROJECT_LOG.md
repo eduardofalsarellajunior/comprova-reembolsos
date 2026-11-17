@@ -121,3 +121,12 @@ Histórico cronológico e cumulativo. Datas de referência em **America/Sao_Paul
 - **Concorrência:** repetir a expectativa `absent` após criação da branch abortou antes de clone/commit/push. Não houve force nem merge.
 - **Vercel:** consulta da branch/SHA retornou zero deploys; domínio de produção permaneceu no deploy anterior do redesign, READY. Não houve SQL remoto nesta configuração.
 - **Continuidade:** atualizar e sincronizar este resultado na próxima revisão; depois retomar a implementação V2 pelo ponto marcado no checkpoint, sem tratar o snapshot parcial como build aprovado.
+
+## 2026-11-17 15:37:01 -03:00 — Prompt permanente para retomada entre contas
+
+- **Pedido e ambiente:** criar um prompt reutilizável nesta conta ou no outro Codex, incluindo checkpoints de aproximadamente cinco minutos. Confirmado Local/Windows no checkout correto, `codex/comprova-v1-preview`, HEAD `477aecf`; índice vazio e trabalho anterior preservado.
+- **Base remota:** `codex/continuity` confirmada em `1762c491221a0487e098f8fb7cb343c474d881fd`; `main` em `b36af53`. A consulta inicial de rede no sandbox não resolveu o host; a conferência autorizada fora dele teve sucesso. Não houve mudança de branch nem pull na árvore suja.
+- **Arquivos:** criado `PROMPT-RETOMADA.md`, vinculado em `AGENTS.md` e incluído em `scripts/continuity-files.json` (56 caminhos); atualizados status e checkpoint. Nenhum código de funcionalidade alterado, arquivo removido, dado importado ou SQL remoto executado.
+- **Decisões:** o prompt consulta a ponta e o checkpoint mais recentes, não fixa SHA nem depende de outro chat. Reitera autorização de commit/push exclusivamente para `codex/continuity`, proteção de produção, isolamento Supabase, dados privados fora do Git e coordenação de alterações concorrentes. Cinco minutos é meta da sessão ativa, sem promessa de salvamento com o aplicativo parado ou sem créditos.
+- **Revisão e testes:** um revisor independente aprovou o prompt sem problemas concretos; 56 arquivos do manifesto existentes, 24 links relativos válidos, sintaxe do publisher válida, `git diff --check` sem erros (avisos LF/CRLF) e índice da origem vazio. Não executados build ou testes funcionais nesta microetapa documental; a V2 permanece parcial conforme checkpoint.
+- **Próxima ação:** sincronizar documentos e prompt com o código já preservado por meio do publisher, confirmar SHA remoto e entregar o texto ao usuário. A retomada funcional continua pela compilação de equipe/Meus dados, sem migração ou deploy implícitos.
