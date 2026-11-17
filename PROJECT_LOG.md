@@ -167,3 +167,17 @@ Histórico cronológico e cumulativo. Datas de referência em **America/Sao_Paul
 - **Validação:** 13/13 testes puros/SQL/mocks combinados passaram; build Webpack/TypeScript com configuração fictícia e fontes simuladas passou, gerando 21 páginas. Lint integral app/lib/tests no QA passou sem avisos. Fonte OneDrive preservada, sem apagar .next antigo do usuário.
 - **Ambiente:** build anterior EPERM resolvido por execução autorizada fora do sandbox. Smoke/browser tiveram restrições de localhost/Chrome; repetir fora delas. Smoke também expôs abort de 500ms no corpo da resposta; tempo do fixture ajustado para 5s/limite global60s. Browser ainda em execução; rebuild dos últimos ajustes pendente.
 - **Git:** snapshot `5e6313d` confirmado só em codex/continuity, main b36af53 preservada. Nada aplicado no banco compartilhado ou na produção.
+
+## 2026-11-17 16:21:48 -03:00 — Retomada em clone local separado
+
+- **Ambiente:** Local/Windows; a pasta inicial não era o produto e continha registros de despesas não versionados. Ela foi preservada. O repositório foi clonado em subpasta separada, sem worktree adicional, na branch `codex/continuity`.
+- **Git:** HEAD, upstream e remoto confirmados em `36c8364f6e691da0902ee3284c9b229e74352a48`, sem alterações iniciais e sem divergência. `main` remota permaneceu em `b36af53f175190ef362f9a7a570b656a093a07a1`. Nenhum merge, rebase, force push ou mudança de produção.
+- **Leitura e decisão:** `PROMPT-RETOMADA.md`, `AGENTS.md`, status, checkpoint, log recente, manifesto e fixtures foram conferidos. A evidência recebida registra build e 13 testes aprovados; o item realmente pendente é o rebuild final e a validação HTTP/browser com mocks locais.
+- **Testes desta sessão:** ainda não executados. Node 24.18.0, npm 11.16.0 e Chrome local foram identificados. A próxima operação usará cópia QA no Temp sem `.env`, `.next`, dados reais ou serviços externos.
+
+## 2026-11-17 16:27:47 -03:00 — Rebuild, smoke e browser V2 aprovados
+
+- **QA descartável:** cópia do snapshot em Temp nativo, sem `.env` e sem dados reais; `npm ci --no-audit --no-fund` instalou 417 pacotes pelo lockfile. O aviso de scripts pendentes de `sharp`/`unrs-resolver` não exigiu liberação adicional para os testes concluídos.
+- **Resultados:** `next build --webpack` passou TypeScript e gerou 21/21 páginas; smoke HTTP passou 1/1; ESLint integral passou sem erros ou avisos. Browser Chrome headless passou em desktop e celular com 14 seções para admin, 5 para comum, Meus dados somente leitura, equipe, projeto/wizard/inativos, despesas, quilometragem, menu e responsividade.
+- **Isolamento:** o browser usou somente Auth/REST/RPC locais simulados e confirmou zero requisições externas; capturas contêm apenas dados fictícios e ficaram no Temp. Nenhum Office 365, OCR, Supabase, provedor de e-mail ou dado real foi exercitado.
+- **Próxima ação:** sincronizar o checkpoint em `codex/continuity` e revisar localmente migrations/guia/bloqueio de deploy. Sem SQL remoto, importação, e-mail, deploy ou `main`.
