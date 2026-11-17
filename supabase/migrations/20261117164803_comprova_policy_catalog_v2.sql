@@ -49,7 +49,7 @@ alter table comprova.mileage_policies
   add column requires_manual_receipt boolean,
   add column vehicle_rates jsonb not null default '{}'::jsonb,
   add constraint comprova_mileage_default_values_v2_chk check (
-    not is_default or (rate_per_km is not null and allow_manual_rate is not null and requires_manual_receipt is not null)
+    not is_default or (active and rate_per_km is not null and allow_manual_rate is not null and requires_manual_receipt is not null)
   );
 
 create function comprova.valid_mileage_vehicle_rates(p_rates jsonb)
@@ -119,6 +119,13 @@ create policy comprova_mileage_members_read_v2 on comprova.mileage_policy_member
 );
 create policy comprova_mileage_members_manage_v2 on comprova.mileage_policy_members for all to authenticated
   using (comprova.is_company_admin(company_id)) with check (comprova.is_company_admin(company_id));
+-- Replace the legacy company-wide read rule: specific policies belong to linked members.
+drop policy comprova_mileage_policies_read on comprova.mileage_policies;
+create policy comprova_mileage_policies_read_v2 on comprova.mileage_policies for select to authenticated using (
+  comprova.is_company_admin(company_id) or (active and comprova.is_company_member(company_id) and (
+    is_default or exists(select 1 from comprova.mileage_policy_members link where link.policy_id=mileage_policies.id)
+  ))
+);
 create policy comprova_mileage_routes_read_v2 on comprova.mileage_routes for select to authenticated
   using (comprova.is_company_member(company_id));
 create policy comprova_mileage_routes_manage_v2 on comprova.mileage_routes for all to authenticated
@@ -144,7 +151,11 @@ create function comprova.save_expense_policy_config(
 ) returns uuid language plpgsql set search_path='' as $body$
 declare v_policy uuid; v_default boolean;
 begin
-  if not comprova.is_company_admin(p_company_id) then raise exception 'Permissão insuficiente.' using errcode='42501'; end if;
+  if (select auth.uid()) is null or not comprova.is_company_admin(p_company_id) then raise exception 'Permissão insuficiente.' using errcode='42501'; end if;
+  -- Serialize membership changes, including competing assignments to a specific policy.
+  perform 1 from comprova.companies where id=p_company_id for update;
+  if p_default is null or coalesce(cardinality(p_member_ids),0)>1000 then
+    raise exception 'Política ou membros inválidos.' using errcode='22023'; end if;
   if jsonb_typeof(p_limits) is distinct from 'array' or jsonb_array_length(p_limits)>250 then
     raise exception 'Limites inválidos.' using errcode='22023'; end if;
   if p_policy_id is null then
@@ -155,7 +166,8 @@ begin
       where id=p_policy_id and company_id=p_company_id returning id,is_default into v_policy,v_default;
     if not found then raise exception 'Política não encontrada.' using errcode='22023'; end if;
   end if;
-  if (select count(*) from comprova.company_members m where m.company_id=p_company_id and m.active and m.id=any(p_member_ids))
+  if (select count(*) from comprova.company_members m where m.company_id=p_company_id and m.id=any(p_member_ids)
+    and (m.active or exists(select 1 from comprova.expense_policy_members link where link.policy_id=v_policy and link.member_id=m.id)))
     <> coalesce(cardinality(p_member_ids),0) then
     raise exception 'Selecione membros ativos e sem duplicidade.' using errcode='22023'; end if;
   if v_default and coalesce(cardinality(p_member_ids),0)>0 then raise exception 'A política padrão não exige vínculo manual.'; end if;
@@ -182,7 +194,10 @@ create function comprova.save_mileage_policy_config(
 ) returns uuid language plpgsql set search_path='' as $body$
 declare v_policy uuid; v_default boolean;
 begin
-  if not comprova.is_company_admin(p_company_id) then raise exception 'Permissão insuficiente.' using errcode='42501'; end if;
+  if (select auth.uid()) is null or not comprova.is_company_admin(p_company_id) then raise exception 'Permissão insuficiente.' using errcode='42501'; end if;
+  perform 1 from comprova.companies where id=p_company_id for update;
+  if p_default is null or coalesce(cardinality(p_member_ids),0)>1000 then
+    raise exception 'Política ou membros inválidos.' using errcode='22023'; end if;
   if p_policy_id is null then
     insert into comprova.mileage_policies(company_id,name,is_default,rate_per_km,vehicle_rates,allow_manual_rate,requires_manual_receipt)
       values (p_company_id,btrim(p_name),p_default,p_rate,p_vehicle_rates,p_allow_manual,p_requires_receipt)
@@ -193,7 +208,8 @@ begin
       where id=p_policy_id and company_id=p_company_id returning id,is_default into v_policy,v_default;
     if not found then raise exception 'Política não encontrada.' using errcode='22023'; end if;
   end if;
-  if (select count(*) from comprova.company_members m where m.company_id=p_company_id and m.active and m.id=any(p_member_ids))
+  if (select count(*) from comprova.company_members m where m.company_id=p_company_id and m.id=any(p_member_ids)
+    and (m.active or exists(select 1 from comprova.mileage_policy_members link where link.policy_id=v_policy and link.member_id=m.id)))
     <> coalesce(cardinality(p_member_ids),0) then
     raise exception 'Selecione membros ativos e sem duplicidade.' using errcode='22023'; end if;
   if v_default and coalesce(cardinality(p_member_ids),0)>0 then raise exception 'A política padrão não exige vínculo manual.'; end if;

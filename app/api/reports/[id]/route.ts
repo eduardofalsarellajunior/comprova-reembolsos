@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase, getBearerToken } from "@/lib/server-auth";
-import { isWorkspaceId, REPORT_CURRENCY } from "@/lib/report-validation";
+import { isReportDate, isWorkspaceId, REPORT_CURRENCY } from "@/lib/report-validation";
 
 export const runtime = "nodejs";
 
@@ -31,12 +31,21 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
   for (const [from, to] of [["name", "name"], ["description", "description"], ["periodStart", "period_start"], ["periodEnd", "period_end"], ["projectId", "project_id"], ["paymentMethodId", "payment_method_id"], ["notes", "notes"]]) {
     if (from in body) update[to] = body[from];
   }
-  if ("name" in update && (typeof update.name !== "string" || !update.name.trim())) return NextResponse.json({ error: "Informe o nome do relatório." }, { status: 400 });
+  if ("name" in update && (typeof update.name !== "string" || !update.name.trim() || update.name.trim().length > 160)) return NextResponse.json({ error: "Informe o nome do relatório (até 160 caracteres)." }, { status: 400 });
+  for (const field of ["description", "notes"]) {
+    if (field in update && typeof update[field] !== "string") return NextResponse.json({ error: "Dados do relatório inválidos." }, { status: 400 });
+  }
+  if (("period_start" in update && !isReportDate(update.period_start)) || ("period_end" in update && !isReportDate(update.period_end))) return NextResponse.json({ error: "Informe datas válidas." }, { status: 400 });
+  if ("name" in update) update.name = (update.name as string).trim();
+  if ("period_start" in update) update.period_start ||= null;
+  if ("period_end" in update) update.period_end ||= null;
   const { data: current } = await supabase.from("reports").select("period_start,period_end,status,currency,project_id,payment_method_id").eq("id", id).eq("owner_id", user.id).single();
   if (!current || !["draft", "rejected"].includes(current.status)) return NextResponse.json({ error: "O relatório não está aberto para edição." }, { status: 409 });
   if (current.currency !== REPORT_CURRENCY) return NextResponse.json({ error: "Relatórios históricos em outra moeda não são convertidos automaticamente." }, { status: 409 });
   if (!isWorkspaceId("project_id" in update ? update.project_id : current.project_id) || !isWorkspaceId("payment_method_id" in update ? update.payment_method_id : current.payment_method_id)) return NextResponse.json({ error: "Selecione projeto e forma de pagamento." }, { status: 400 });
-  if (String(update.period_start ?? current.period_start ?? "") && String(update.period_end ?? current.period_end ?? "") && String(update.period_start ?? current.period_start) > String(update.period_end ?? current.period_end)) return NextResponse.json({ error: "A data inicial deve ser anterior à data final." }, { status: 400 });
+  const start = "period_start" in update ? update.period_start : current.period_start;
+  const end = "period_end" in update ? update.period_end : current.period_end;
+  if (start && end && String(start) > String(end)) return NextResponse.json({ error: "A data inicial deve ser anterior à data final." }, { status: 400 });
   const { data, error } = await supabase.from("reports").update(update).eq("id", id).eq("owner_id", user.id).select().single();
   if (error?.code === "22023") return NextResponse.json({ error: "Selecione um projeto ativo vinculado à sua conta e uma forma de pagamento ativa." }, { status: 400 });
   if (error || !data) return NextResponse.json({ error: "Não foi possível atualizar o relatório. Verifique se ele ainda está sob sua edição." }, { status: 409 });

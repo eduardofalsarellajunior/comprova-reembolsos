@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase, getBearerToken } from "@/lib/server-auth";
-import { isWorkspaceId, REPORT_CURRENCY } from "@/lib/report-validation";
+import { isReportDate, isWorkspaceId, REPORT_CURRENCY } from "@/lib/report-validation";
 
 export const runtime = "nodejs";
 
@@ -25,9 +25,10 @@ export async function POST(request: Request) {
   if (!supabase || !user) return NextResponse.json({ error: "Sessão inválida." }, { status: 401 });
   const body = await request.json().catch(() => null) as { name?: unknown; description?: unknown; periodStart?: string; periodEnd?: string; companyId?: string; projectId?: string; paymentMethodId?: string; notes?: unknown } | null;
   const name = typeof body?.name === "string" ? body.name.trim() : "";
-  if (!name) return NextResponse.json({ error: "Informe o nome do relatório." }, { status: 400 });
+  if (!name || name.length > 160) return NextResponse.json({ error: "Informe o nome do relatório (até 160 caracteres)." }, { status: 400 });
   if (!isWorkspaceId(body?.companyId)) return NextResponse.json({ error: "Selecione a empresa." }, { status: 400 });
   if (!isWorkspaceId(body.projectId) || !isWorkspaceId(body.paymentMethodId)) return NextResponse.json({ error: "Selecione projeto e forma de pagamento." }, { status: 400 });
+  if ((body.periodStart !== undefined && !isReportDate(body.periodStart)) || (body.periodEnd !== undefined && !isReportDate(body.periodEnd))) return NextResponse.json({ error: "Informe datas válidas." }, { status: 400 });
   if (body.periodStart && body.periodEnd && body.periodStart > body.periodEnd) return NextResponse.json({ error: "A data inicial deve ser anterior à data final." }, { status: 400 });
   const { data: company } = await supabase.from("companies").select("id").eq("id", body.companyId).single();
   if (!company) return NextResponse.json({ error: "Empresa não encontrada." }, { status: 404 });

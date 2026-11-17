@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import type { SupabaseUser } from "@supabase/supabase-js";
 import { supabase } from "@/lib/workspace-browser";
+import { profileFields, teamRoleLabel, type MemberProfile } from "@/lib/team-profile";
 
 export type AccountSection = "meus-dados" | "seguranca" | "mudar-senha" | "preferencias-email";
 const profileKey = "comprova_display_name";
@@ -42,7 +43,7 @@ function formatDate(value?: string) {
 
 type Notice = { message: string; error?: boolean };
 
-export default function AccountSettings({ section, userId, email }: { section: AccountSection; userId: string; email: string }) {
+export default function AccountSettings({ section, userId, email, companyId }: { section: AccountSection; userId: string; email: string; companyId?: string }) {
   const [user, setUser] = useState<SupabaseUser | null>(null);
   const [failed, setFailed] = useState(false);
   const [refresh, setRefresh] = useState(0);
@@ -62,11 +63,54 @@ export default function AccountSettings({ section, userId, email }: { section: A
 
   if (failed) return <section className="reportCard"><h2>Minha conta</h2><p role="alert">Não foi possível verificar sua conta. Entre novamente ou tente recarregar.</p><button className="primary" type="button" onClick={() => { setFailed(false); setRefresh((value) => value + 1); }}>Tentar novamente</button></section>;
   if (!user || user.id !== userId) return <section className="reportCard" aria-busy="true"><p role="status">Carregando sua conta…</p></section>;
-  return <AccountPanel key={`${user.id}:${section}`} section={section} user={user} email={user.email || email} onUpdate={setUser} />;
+  return <AccountPanel key={`${user.id}:${section}:${companyId || ""}`} section={section} user={user} email={user.email || email} companyId={companyId} onUpdate={setUser} />;
 }
 
-function AccountPanel({ section, user, email, onUpdate }: { section: AccountSection; user: SupabaseUser; email: string; onUpdate: (user: SupabaseUser) => void }) {
-  const [name, setName] = useState(() => displayName(user));
+function PersonalProfile({ companyId, userId, email, fallbackName }: { companyId?: string; userId: string; email: string; fallbackName: string }) {
+  const [snapshot, setSnapshot] = useState<{ key: string; profile: Partial<MemberProfile>; role: string; department: string; job: string; error: boolean }>({ key: "", profile: {}, role: "", department: "", job: "", error: false });
+  const [revision, setRevision] = useState(0);
+  const key = `${companyId || ""}:${userId}`;
+  useEffect(() => {
+    let live = true;
+    async function load() {
+      if (!companyId) return;
+      try {
+        const membership = await supabase.from("company_members").select("id,role,department_id,job_title_id").eq("company_id", companyId).eq("user_id", userId).eq("active", true).maybeSingle();
+        if (membership.error || !membership.data) throw new Error();
+        const member = membership.data as { id: string; role: string; department_id: string | null; job_title_id: string | null };
+        const [profile, department, job] = await Promise.all([
+          supabase.from("company_member_profiles").select(profileFields.map((field) => field.key).join(",")).eq("company_id", companyId).eq("member_id", member.id).maybeSingle(),
+          member.department_id ? supabase.from("departments").select("name").eq("company_id", companyId).eq("id", member.department_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+          member.job_title_id ? supabase.from("job_titles").select("name").eq("company_id", companyId).eq("id", member.job_title_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+        ]);
+        if (profile.error || department.error || job.error) throw new Error();
+        if (live) setSnapshot({ key, profile: profile.data || {}, role: member.role, department: department.data?.name || "", job: job.data?.name || "", error: false });
+      } catch {
+        if (live) setSnapshot({ key, profile: {}, role: "", department: "", job: "", error: true });
+      }
+    }
+    void load();
+    return () => { live = false; };
+  }, [companyId, userId, key, revision]);
+  if (!companyId) return <><p className="muted">Você ainda não está vinculado a uma empresa. Os dados cadastrais são administrados pela equipe responsável.</p><dl className="settingsAccountFacts"><div><dt>Nome de acesso</dt><dd>{fallbackName || "Não informado"}</dd></div><div><dt>E-mail de acesso</dt><dd>{email}</dd></div></dl></>;
+  if (snapshot.key !== key) return <p role="status">Carregando seu cadastro…</p>;
+  if (snapshot.error) return <><p className="warningBox" role="alert">Não foi possível carregar seu cadastro. Os dados pessoais não foram substituídos pelos dados do login.</p><button type="button" onClick={() => setRevision((value) => value + 1)}>Tentar novamente</button></>;
+  return <>
+    <p className="muted">Dados pessoais e bancários são gerenciados somente pelos administradores em Membros de equipe. Para corrigir qualquer informação, procure o responsável pela empresa.</p>
+    <h3>Cadastro pessoal</h3>
+    <dl className="settingsAccountFacts">
+      <div><dt>E-mail de acesso</dt><dd>{email}</dd></div>
+      <div><dt>Tipo de usuário</dt><dd>{teamRoleLabel(snapshot.role)}</dd></div>
+      {profileFields.slice(0, 5).map((field) => <div key={field.key}><dt>{field.label}</dt><dd>{field.key === "birth_date" && snapshot.profile.birth_date ? snapshot.profile.birth_date.split("-").reverse().join("/") : snapshot.profile[field.key] || "Não informado"}</dd></div>)}
+      <div><dt>Departamento</dt><dd>{snapshot.department || "Não informado"}</dd></div>
+      <div><dt>Cargo cadastrado</dt><dd>{snapshot.job || "Não informado"}</dd></div>
+    </dl>
+    <h3>Dados para reembolso</h3>
+    <dl className="settingsAccountFacts">{profileFields.slice(5).map((field) => <div key={field.key}><dt>{field.label}</dt><dd>{snapshot.profile[field.key] || "Não informado"}</dd></div>)}</dl>
+  </>;
+}
+
+function AccountPanel({ section, user, email, companyId, onUpdate }: { section: AccountSection; user: SupabaseUser; email: string; companyId?: string; onUpdate: (user: SupabaseUser) => void }) {
   const [prefs, setPrefs] = useState(() => preferences(user));
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
@@ -173,12 +217,7 @@ function AccountPanel({ section, user, email, onUpdate }: { section: AccountSect
   return <section className="reportCard settingsAccount" aria-busy={busy}>
     {section === "meus-dados" && <>
       <h2>Meus dados</h2>
-      <p className="muted">Atualize seu nome de exibição. O e-mail de acesso e os perfis de empresa não são alterados aqui.</p>
-      <form className="compactForm" onSubmit={(event) => void saveMetadata(event, { [profileKey]: name.trim() }, "Seus dados foram salvos.")}>
-        <label>Nome de exibição<input autoComplete="name" maxLength={120} value={name} onChange={(event) => setName(event.target.value)} disabled={busy} /></label>
-        <label>E-mail de acesso<input type="email" value={email} readOnly /></label>
-        <button className="primary" type="submit" disabled={busy || name.trim() === displayName(user)}>Salvar dados</button>
-      </form>
+      <PersonalProfile companyId={companyId} userId={user.id} email={email} fallbackName={displayName(user)} />
     </>}
     {section === "seguranca" && <>
       <h2>Segurança</h2>

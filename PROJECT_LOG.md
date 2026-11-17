@@ -136,3 +136,12 @@ Histórico cronológico e cumulativo. Datas de referência em **America/Sao_Paul
 - **GitHub:** `c57d6a6a83a35b1ece598364848efc243a74616a` confirmado em `codex/continuity` após push normal sobre `1762c49`; seis arquivos documentais/de suporte no commit. Os 56 caminhos do snapshot conferidos pelo publisher; nenhuma alteração funcional nesta microetapa.
 - **Isolamento:** `main` antes/depois permaneceu em `b36af53`; consulta Vercel da branch retornou zero deploys. Nenhum SQL, importação, e-mail ou deploy executado. Branch e índice da pasta de origem preservados.
 - **Entrega:** usar o texto de `PROMPT-RETOMADA.md` em qualquer uma das contas. Este registro posterior será sincronizado na mesma branch; a ponta pode ter SHA diferente do commit que criou o prompt. Próxima ação funcional permanece a do checkpoint; não confundir continuidade publicada com aplicação V2 pronta.
+
+## 2026-11-17 15:50:09 -03:00 — Retomada funcional de Configurações V2
+
+- **Base:** retomada autorizada pelo usuário, checkout Local/Windows preservado, `codex/continuity` conferida em `96b72ab`, `main` ainda `b36af53`; índice vazio. Sem checkout/pull sobre a árvore suja.
+- **Execução:** tarefas repartidas por arquivos entre equipe/conta, projetos/políticas e validação/e-mail; root integra, revisa perfis e mantém checkpoints. Orientações oficiais Supabase/RLS verificadas; novos objetos somente no schema comprova, sem execução remota.
+- **Teste concluído:** navegação ajustada de 18 para 14 seções, com remoção de visão geral/centros de custos/Financeiro/fluxos. Suíte de navegação e parser de importação passou 4/4. TypeScript inicial confirmou duas integrações ausentes e um arquivo gerado antigo; não é validação de build V2.
+- **Ensaio:** instalado PGlite 0.5.16 em pasta temporária separada, sem alterar dependências do app. Testes de banco ainda em preparação.
+- **Decisões:** OCR incompleto continua revisável como extração avulsa; validação estrita no lançamento manual, vínculo e submissão. Projeto e pagamento são herdados do contexto do relatório. Limites legados ativos não serão apagados silenciosamente e devem ser mostrados na interface.
+- **Próxima ação:** integrar equipe/Meus dados, executar ensaios SQL e validar build limpo. Snapshot preventivo pode conter código parcial; nenhuma migração, importação real, e-mail ou produção nesta etapa.

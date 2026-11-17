@@ -8,6 +8,7 @@ type Person = Pick<Member, "id" | "email" | "active">;
 type Link = { member_id: string; policy_id: string };
 type Category = { id: string; name: string; active: boolean };
 type ExpensePolicy = { id: string; name: string; is_default: boolean; past_days: number | null; future_days: number | null };
+type LegacyRule = { id: string; name: string; category: string | null; max_amount: number | null; requires_receipt: boolean; max_days_after_expense: number | null };
 type Limit = {
   policy_id?: string;
   category_id: string;
@@ -18,7 +19,7 @@ type Limit = {
   allow_exceed: boolean;
 };
 type LimitInput = Omit<Limit, "max_amount" | "max_entries"> & { max_amount: string; max_entries: string };
-type ExpenseData = { policies: ExpensePolicy[]; categories: Category[]; limits: Limit[]; links: Link[]; people: Person[] };
+type ExpenseData = { policies: ExpensePolicy[]; categories: Category[]; limits: Limit[]; links: Link[]; people: Person[]; legacyRules: LegacyRule[] };
 type ExpenseDraft = { id: string; name: string; default: boolean; past: string; future: string; limits: Record<string, LimitInput>; memberIds: string[] };
 
 const periodOptions = [
@@ -38,16 +39,17 @@ function readPeople(companyId: string, admin: boolean) {
 }
 
 async function readExpenseData(companyId: string, admin: boolean): Promise<ExpenseData> {
-  const [policies, categories, limits, links, people] = await Promise.all([
+  const [policies, categories, limits, links, people, legacyRules] = await Promise.all([
     supabase.from("expense_policy_configs").select("id,name,is_default,past_days,future_days").eq("company_id", companyId).order("is_default", { ascending: false }).order("name"),
     supabase.from("expense_categories").select("id,name,active").eq("company_id", companyId).order("name"),
     supabase.from("expense_policy_limits").select("policy_id,category_id,max_amount,amount_period,max_entries,count_period,allow_exceed").eq("company_id", companyId),
     supabase.from("expense_policy_members").select("member_id,policy_id").eq("company_id", companyId),
     readPeople(companyId, admin),
+    supabase.from("policy_rules").select("id,name,category,max_amount,requires_receipt,max_days_after_expense").eq("company_id", companyId).eq("active", true).order("name"),
   ]);
   return {
     policies: checkResult<ExpensePolicy>(policies), categories: checkResult<Category>(categories),
-    limits: checkResult<Limit>(limits), links: checkResult<Link>(links), people: checkResult<Person>(people),
+    limits: checkResult<Limit>(limits), links: checkResult<Link>(links), people: checkResult<Person>(people), legacyRules: checkResult<LegacyRule>(legacyRules),
   };
 }
 
@@ -90,7 +92,7 @@ function MemberChoices({ people, links, policyId, automatic, disabled, selected,
   selected: string[]; onChange: (values: string[]) => void;
 }) {
   if (automatic) return <p className="muted">A política padrão é aplicada a todos que não têm uma política específica.</p>;
-  const active = people.filter((member) => member.active);
+  const active = people.filter((member) => member.active || selected.includes(member.id));
   if (!active.length) return <p className="muted">Nenhum membro ativo da empresa.</p>;
   const assigned = new Set(links.filter((link) => link.policy_id !== policyId).map((link) => link.member_id));
   return <>
@@ -100,7 +102,7 @@ function MemberChoices({ people, links, policyId, automatic, disabled, selected,
         const linked = assigned.has(person.id);
         return <label className={styles.check} key={person.id}>
           <input type="checkbox" disabled={disabled || linked} checked={selected.includes(person.id)} onChange={(event) => onChange(event.target.checked ? [...selected, person.id] : selected.filter((id) => id !== person.id))} />
-          {person.email}{linked ? " · Outra política" : ""}
+          {person.email}{!person.active ? " · Inativo" : ""}{linked ? " · Outra política" : ""}
         </label>;
       })}
     </div>
@@ -165,6 +167,18 @@ export function ExpensePolicySettings({ companyId, admin = false }: { companyId:
     <div className={styles.header}><h2>Políticas de despesas</h2>{admin && data && <button className="dark" type="button" disabled={busy} onClick={() => { setDraft(expenseDraft(data, "")); setTab("edit"); }}>Nova política</button>}</div>
     {status && <p className={styles.notice} role="status">{status}</p>}
     {!data && !status && <p className="muted">Carregando políticas de despesas…</p>}
+    {!!data?.legacyRules.length && <aside className={styles.editor} aria-label="Regras anteriores ainda vigentes">
+      <h3>Regras anteriores ainda vigentes</h3>
+      <p className="muted">Estas regras também são verificadas no envio. Salvar os limites abaixo não altera nem desativa as regras anteriores.</p>
+      <div className={styles.scroll}><table className={styles.table}>
+        <thead><tr><th scope="col">Regra</th><th scope="col">Tipo</th><th scope="col">Valor por despesa</th><th scope="col">Dias passados</th><th scope="col">Comprovante</th></tr></thead>
+        <tbody>{data.legacyRules.map((rule) => <tr key={rule.id}>
+          <th scope="row">{rule.name}</th><td>{rule.category || "Todos"}</td>
+          <td>{rule.max_amount == null ? "Sem limite" : Number(rule.max_amount).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</td>
+          <td>{rule.max_days_after_expense ?? "Sem limite"}</td><td>{rule.requires_receipt ? "Obrigatório" : "Não exigido por esta regra"}</td>
+        </tr>)}</tbody>
+      </table></div>
+    </aside>}
     {data && draft && (admin || draft.id) && <>
       <label className={styles.search}>Política
         <select value={draft.id} disabled={busy} onChange={(event) => { setDraft(expenseDraft(data, event.target.value)); setStatus(""); }}>
@@ -184,7 +198,7 @@ export function ExpensePolicySettings({ companyId, admin = false }: { companyId:
             <label>Limite máximo de dias passados<input disabled={!admin || busy} type="number" min="0" max="36500" step="1" placeholder="Sem limite" value={draft.past} onChange={(event) => setDraft({ ...draft, past: event.target.value })} /></label>
             <label>Limite máximo de dias futuros<input disabled={!admin || busy} type="number" min="0" max="36500" step="1" placeholder="Sem limite" value={draft.future} onChange={(event) => setDraft({ ...draft, future: event.target.value })} /></label>
           </div>
-          <p className="muted">Regras em Real (R$). O período usa a data da despesa. Em branco não há limite.</p>
+          <p className="muted">Regras em Real (R$). O período usa a data da despesa. Em branco não há limite nesta política. Regras anteriores, quando existentes, continuam sendo verificadas no envio.</p>
           <div className={styles.scroll}><table className={styles.table}>
             <thead><tr><th scope="col">Tipo de despesa</th><th scope="col">Limite de valor</th><th scope="col">Limite de lançamentos</th><th scope="col">Permite ultrapassar limites</th></tr></thead>
             <tbody>{data.categories.filter((item) => item.active || draft.limits[item.id]).map((category) => {
@@ -236,8 +250,8 @@ function mileageDraft(data: MileageData, policyId: string, newDefault = false): 
   const policy = data.policies.find((entry) => entry.id === policyId);
   return {
     id: policy?.id ?? "", name: policy?.name ?? (newDefault ? "Política Padrão da Empresa" : ""), default: policy?.is_default ?? newDefault,
-    rate: policy?.rate_per_km == null ? "" : String(policy.rate_per_km).replace(".", ","),
-    allowManual: policy?.allow_manual_rate == null ? (newDefault ? "no" : "") : policy.allow_manual_rate ? "yes" : "no",
+    rate: policy?.rate_per_km == null ? (newDefault ? "1,5000" : "") : Number(policy.rate_per_km).toFixed(4).replace(".", ","),
+    allowManual: policy?.allow_manual_rate == null ? (newDefault ? "yes" : "") : policy.allow_manual_rate ? "yes" : "no",
     requiresReceipt: policy?.requires_manual_receipt == null ? (newDefault ? "no" : "") : policy.requires_manual_receipt ? "yes" : "no",
     rates: Object.fromEntries(Object.entries(policy?.vehicle_rates ?? {}).map(([kind, value]) => [kind, String(value).replace(".", ",")])),
     memberIds: data.links.filter((entry) => entry.policy_id === policyId).map((entry) => entry.member_id),
@@ -284,7 +298,8 @@ export function MileagePolicySettings({ companyId, admin = false }: { companyId:
     void readMileageData(companyId, admin).then((loaded) => {
       if (!active) return;
       setData(loaded);
-      const primary = loaded.policies.find((policy) => policy.is_default);
+      const linked = !admin && loaded.links.find((link) => loaded.policies.some((policy) => policy.id === link.policy_id && policy.active));
+      const primary = loaded.policies.find((policy) => policy.id === (linked && linked.policy_id)) ?? loaded.policies.find((policy) => policy.is_default);
       setDraft(primary ? mileageDraft(loaded, primary.id) : (admin ? mileageDraft(loaded, "", true) : null));
     }, () => { if (active) setStatus("Não foi possível carregar as políticas de quilometragem."); });
     return () => { active = false; };

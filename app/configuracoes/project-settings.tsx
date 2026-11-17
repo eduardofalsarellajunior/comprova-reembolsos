@@ -228,7 +228,8 @@ export function MemberApprovalLinks({ companyId, members, memberId, editable = f
     requesters: snapshot.rows.filter((row) => row.approver_member_id === memberId).map((row) => row.requester_member_id),
   };
   const value = draft || current;
-  const otherMembers = members.filter((item) => item.id !== memberId).sort((a, b) => shortName(a).localeCompare(shortName(b), "pt-BR"));
+  const otherMembers = members.filter((item) => item.id !== memberId && (!currentMember?.user_id || item.user_id !== currentMember.user_id))
+    .sort((a, b) => shortName(a).localeCompare(shortName(b), "pt-BR"));
   const memberById = new Map(members.map((item) => [item.id, item]));
 
   useEffect(() => {
@@ -280,7 +281,7 @@ export function MemberApprovalLinks({ companyId, members, memberId, editable = f
         {!value.approvers.length && <p className="muted">Nenhum aprovador atribuído.</p>}
         <ol className={styles.approvalOrder}>{value.approvers.map((id, index) => {
           const member = memberById.get(id);
-          return <li key={id}><span>{member ? shortName(member) : "Membro"}{!mayApprove(member) && " (não pode aprovar)"}</span>
+          return <li key={id}><span>{member ? shortName(member) : "Membro"}{!mayApprove(member) ? " (não pode aprovar)" : !member?.user_id ? " (primeiro acesso pendente)" : ""}</span>
             {editable && <div>
               <button type="button" className="settingsButton" disabled={saving || index === 0} onClick={() => move(index, index - 1)} aria-label={`Subir etapa ${index + 1}`}>↑</button>
               <button type="button" className="settingsButton" disabled={saving || index === value.approvers.length - 1} onClick={() => move(index, index + 1)} aria-label={`Descer etapa ${index + 1}`}>↓</button>
