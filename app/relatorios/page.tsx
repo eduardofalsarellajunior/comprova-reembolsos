@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "r
 import { api, CatalogItem, Company, Flow, loadMyCompanies, Member, money, supabase } from "@/lib/workspace-browser";
 import { DOCUMENTS_BUCKET } from "@/lib/supabase/config";
 import { categories } from "@/lib/expenses";
+import ReceiptWorkspace from "./receipt-workspace";
 
 type Report = {
   id: string; company_id: string; owner_id: string; name: string; description: string; notes: string;
@@ -18,7 +19,7 @@ type Report = {
 type Expense = {
   id: string; receipt_id: string | null; user_id: string; supplier: string; expense_date: string | null;
   entry_source: "manual" | "ocr";
-  amount: number | string | null; category: string; description: string;
+  amount: number | string | null; currency: string; category: string; description: string;
   receipts: { file_name: string; storage_path: string } | null;
 };
 type Form = { name: string; description: string; notes: string; periodStart: string; periodEnd: string; costCenterId: string; projectId: string; paymentMethodId: string; approvalFlowId: string };
@@ -44,6 +45,7 @@ export default function ReportsPage() {
   const [editingExpenseId, setEditingExpenseId] = useState("");
   const [flows, setFlows] = useState<Flow[]>([]);
   const [selectedId, setSelectedId] = useState("");
+  const [receiptPromptId, setReceiptPromptId] = useState("");
   const [newForm, setNewForm] = useState<Form>(emptyForm);
   const [editOverride, setEditOverride] = useState<{ reportId: string; form: Form } | null>(null);
   const [selectedExpenses, setSelectedExpenses] = useState<string[]>([]);
@@ -58,7 +60,7 @@ export default function ReportsPage() {
   const editForm = editOverride?.reportId === activeReport?.id ? editOverride?.form || savedForm : savedForm;
   const visibleReports = useMemo(() => reports.filter((report) => report.company_id === companyId && (statusFilter === "all" || report.status === statusFilter) && report.name.toLowerCase().includes(search.toLowerCase())), [reports, companyId, statusFilter, search]);
   const linkedIds = new Set(reports.flatMap((report) => report.report_expenses || []).map((item) => item.expense_id));
-  const available = expenses.filter((expense) => expense.user_id === userId && !linkedIds.has(expense.id));
+  const available = expenses.filter((expense) => expense.user_id === userId && !linkedIds.has(expense.id) && (expense.currency || "BRL") === activeReport?.currency);
   const reportExpenses = (activeReport?.report_expenses || []).map((item) => expenses.find((expense) => expense.id === item.expense_id)).filter((item): item is Expense => Boolean(item));
   const editable = !!activeReport && activeReport.owner_id === userId && ["draft", "rejected"].includes(activeReport.status);
   const isDirty = !!activeReport && JSON.stringify(editForm) !== JSON.stringify(savedForm);
@@ -70,7 +72,7 @@ export default function ReportsPage() {
   const refreshData = useCallback(async (id: string) => {
     const [reportPayload, expenseResult, memberResult, centerResult, projectResult, methodResult, categoryResult, flowPayload] = await Promise.all([
       api<{ reports: Report[] }>("/api/reports"),
-      supabase.from("expenses").select("id,receipt_id,user_id,supplier,expense_date,amount,category,description,entry_source,receipts(file_name,storage_path)").order("expense_date", { ascending: false }),
+      supabase.from("expenses").select("id,receipt_id,user_id,supplier,expense_date,amount,currency,category,description,entry_source,receipts(file_name,storage_path)").order("expense_date", { ascending: false }),
       supabase.from("company_members").select("*").eq("company_id", id),
       supabase.from("cost_centers").select("*").eq("company_id", id).eq("active", true).order("name"),
       supabase.from("projects").select("*").eq("company_id", id).eq("active", true).order("name"),
@@ -80,6 +82,8 @@ export default function ReportsPage() {
     ]);
     if (expenseResult.error || memberResult.error || centerResult.error || projectResult.error || methodResult.error || categoryResult.error) throw new Error("Não foi possível carregar os dados do relatório.");
     setReports(reportPayload.reports || []);
+    const linkedExpenseIds = new Set((reportPayload.reports || []).flatMap((report) => report.report_expenses || []).map((row) => row.expense_id));
+    setSelectedExpenses((current) => current.filter((expenseId) => !linkedExpenseIds.has(expenseId)));
     setExpenses((expenseResult.data || []) as Expense[]);
     setMembers((memberResult.data || []) as Member[]);
     setCenters((centerResult.data || []) as CatalogItem[]);
@@ -109,6 +113,7 @@ export default function ReportsPage() {
 
   function selectReport(id: string) {
     setSelectedId(id);
+    setReceiptPromptId("");
     setEditOverride(null);
     setSelectedExpenses([]);
     resetManual();
@@ -137,7 +142,7 @@ export default function ReportsPage() {
   async function createReport() {
     await run(async () => {
       const result = await api<{ report: Report }>("/api/reports", { method: "POST", body: JSON.stringify({ companyId, ...payload(newForm) }) });
-      setNewForm(emptyForm); await refreshData(companyId); selectReport(result.report.id); setNotice("Relatório criado em rascunho.");
+      setNewForm(emptyForm); await refreshData(companyId); selectReport(result.report.id); setReceiptPromptId(result.report.id); setNotice("Rascunho criado. Você já pode ler comprovantes ou lançar despesas manualmente.");
     });
   }
   async function saveReport() {
@@ -145,8 +150,10 @@ export default function ReportsPage() {
     await run(async () => { await api(`/api/reports/${activeReport.id}`, { method: "PATCH", body: JSON.stringify(payload(editForm)) }); await refreshData(companyId); setEditOverride(null); setNotice("Relatório atualizado."); });
   }
   async function attachExpenses() {
-    if (!activeReport || !selectedExpenses.length) return;
-    await run(async () => { await api(`/api/reports/${activeReport.id}/expenses`, { method: "POST", body: JSON.stringify({ expenseIds: selectedExpenses }) }); setSelectedExpenses([]); await refreshData(companyId); setNotice("Despesas adicionadas ao relatório."); });
+    if (!activeReport || !editable) return;
+    const expenseIds = selectedExpenses.filter((id) => available.some((expense) => expense.id === id));
+    if (!expenseIds.length) return;
+    await run(async () => { await api(`/api/reports/${activeReport.id}/expenses`, { method: "POST", body: JSON.stringify({ expenseIds }) }); setSelectedExpenses([]); await refreshData(companyId); setNotice("Despesas adicionadas ao relatório."); });
   }
   async function removeExpense(expenseId: string) {
     if (!activeReport) return;
@@ -244,12 +251,11 @@ export default function ReportsPage() {
   }
 
   if (loading) return <main className="authShell"><div className="authCard">Carregando relatórios…</div></main>;
-  if (!userId) return <main className="authShell"><div className="authCard"><h2>Entre no COMPROVA</h2><Link href="/">Voltar ao login</Link></div></main>;
-  return <main style={{ "--company-accent": company?.brand_color || "#147D64" } as CSSProperties}>
-    <header className="topbar"><Link className="brand" href="/"><span className="brandMark">C</span><span>comprova</span></Link><nav className="topActions"><Link className="settingsButton" href="/">Comprovantes</Link><Link className="settingsButton" href="/aprovacoes">Aprovações</Link><Link className="settingsButton" href="/empresa">Empresa</Link></nav></header>
-    <section className="results reportWorkspace"><div className="resultsHeader"><div><span className="sectionNumber">Prestação de contas</span><h1>Relatórios de reembolso</h1><p>Organize despesas, personalize o relatório e acompanhe cada etapa.</p></div><Link className="settingsButton" href="/empresa">Configurar empresa →</Link></div>
+  if (!userId) return <main className="authShell"><div className="authCard"><h2>Entre no INEPAD Reembolso</h2><p>Entre na sua conta para criar e acompanhar relatórios.</p><Link className="primary" href="/login">Ir para o login</Link></div></main>;
+  return <main style={{ "--company-accent": company?.brand_color || "#174f84" } as CSSProperties}>
+    <section className="results reportWorkspace"><div className="resultsHeader"><div><span className="sectionNumber">Prestação de contas</span><h1>Relatórios de reembolso</h1><p>Organize despesas, personalize o relatório e acompanhe cada etapa.</p></div><Link className="settingsButton" href="/configuracoes?secao=dados-empresa">Configurar empresa →</Link></div>
       {notice && <p className="notice reportNotice" role="status">{notice}</p>}
-      {!companies.length ? <section className="reportCard"><h2>Configure sua empresa primeiro</h2><p className="muted">É preciso cadastrar a empresa e o fluxo de aprovação para começar.</p><Link className="primary" href="/empresa">Abrir configurações <span>→</span></Link></section> : <>
+      {!companies.length ? <section className="reportCard"><h2>Configure sua empresa primeiro</h2><p className="muted">É preciso cadastrar a empresa e o fluxo de aprovação para começar.</p><Link className="primary" href="/configuracoes?secao=dados-empresa">Abrir configurações <span>→</span></Link></section> : <>
         <label className="workspaceSelector">Empresa <select value={companyId} onChange={(event) => switchCompany(event.target.value)} disabled={busy}>{companies.map(({ company: item }) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
         <div className="reportGrid"><section className="reportCard"><h2>Novo relatório</h2>{reportFields(newForm, setNewForm)}<button className="dark" onClick={createReport} disabled={busy || !newForm.name.trim() || (!!company?.require_cost_center && !newForm.costCenterId)}>Criar rascunho</button></section>
         <section className="reportCard"><h2>Seus relatórios</h2><div className="reportFilters"><input aria-label="Buscar relatório" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por nome" /><select aria-label="Filtrar por status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">Todos os status</option>{Object.entries(statusLabels).map(([value, label]) => <option value={value} key={value}>{label}</option>)}</select></div><div className="reportList">{visibleReports.map((report) => <button key={report.id} className={`reportListItem ${selectedId === report.id ? "selected" : ""}`} onClick={() => selectReport(report.id)} disabled={busy}><span><strong>{report.name}</strong><small>{report.report_code && `${report.report_code} · `}{statusLabels[report.status] || report.status} · {money(report.total_amount, report.currency)} · {report.report_expenses?.length || 0} despesa(s)</small><small>{members.find((member) => member.user_id === report.owner_id)?.email || "Colaborador"}</small></span><b>›</b></button>)}{!visibleReports.length && <p className="muted">Nenhum relatório neste filtro.</p>}</div></section></div>
@@ -258,6 +264,9 @@ export default function ReportsPage() {
           {activeReport.rejection_reason && <p className="warningBox"><strong>Motivo da rejeição:</strong> {activeReport.rejection_reason}</p>}
           <h3>Detalhes do relatório</h3>{reportFields(editForm, setEditForm, !editable)}{editable && <button onClick={saveReport} disabled={busy || !editForm.name.trim()}>Salvar alterações</button>}
           <h3>Despesas vinculadas</h3>{reportExpenses.length ? <div className="reportExpenseList">{reportExpenses.map((expense) => <div className="reportExpenseRow" key={expense.id}>{expense.receipts ? <button className="fileLink" onClick={() => openReceipt(expense)}>{expense.receipts.file_name}</button> : <span>Sem comprovante</span>}<span>{expense.supplier || "Fornecedor não identificado"}</span><span>{expense.expense_date || "Sem data"}</span><span>{expense.category}</span><strong>{money(expense.amount, activeReport.currency)}</strong>{editable && <div className="rowActions">{expense.entry_source === "manual" && <button onClick={() => editManualExpense(expense)} disabled={busy}>Editar</button>}<button onClick={() => removeExpense(expense.id)} disabled={busy}>Retirar</button></div>}</div>)}</div> : <p className="muted">Nenhuma despesa neste relatório.</p>}
+          {editable && <ReceiptWorkspace key={activeReport.id} reportId={activeReport.id} reportName={activeReport.name} currency={activeReport.currency} userId={userId}
+            knownLinkedIds={linkedIds} disabled={busy} initialOpen={receiptPromptId === activeReport.id}
+            onBusyChange={setBusy} onRefresh={() => refreshData(companyId)} />}
           {editable && <form className="manualExpenseForm" onSubmit={(event) => { event.preventDefault(); void saveManualExpense(); }}>
             <h3>{editingExpenseId ? "Editar despesa manual" : "Lançar despesa manual"}</h3>
             <div className="settingsGrid">
@@ -270,7 +279,7 @@ export default function ReportsPage() {
             </div>
             <div className="actions">{editingExpenseId && <button type="button" onClick={resetManual} disabled={busy}>Cancelar edição</button>}<button type="submit" className="dark" disabled={busy}>{editingExpenseId ? "Salvar despesa" : "Adicionar despesa manual"}</button></div>
           </form>}
-          {editable && <><h3>Adicionar despesas da sua caixa de entrada</h3>{available.length ? <><div className="selectExpenseList">{available.map((expense) => <label className="selectExpense" key={expense.id}><input type="checkbox" checked={selectedExpenses.includes(expense.id)} onChange={(event) => setSelectedExpenses((current) => event.target.checked ? [...current, expense.id] : current.filter((id) => id !== expense.id))} /><span><strong>{expense.receipts?.file_name || "Comprovante"}</strong><small>{expense.supplier || "Fornecedor não identificado"} · {expense.expense_date || "Sem data"} · {money(expense.amount)}</small></span></label>)}</div><button className="primary" onClick={attachExpenses} disabled={busy || !selectedExpenses.length}>Adicionar {selectedExpenses.length || ""} despesa(s) <span>→</span></button></> : <p className="muted">Sem despesas disponíveis. <Link href="/">Importe comprovantes</Link> primeiro.</p>}</>}
+          {editable && <><h3>Adicionar despesas da sua caixa de entrada</h3>{available.length ? <><div className="selectExpenseList">{available.map((expense) => <label className="selectExpense" key={expense.id}><input type="checkbox" checked={selectedExpenses.includes(expense.id)} disabled={busy} onChange={(event) => setSelectedExpenses((current) => event.target.checked ? [...current, expense.id] : current.filter((id) => id !== expense.id))} /><span><strong>{expense.receipts?.file_name || "Comprovante"}</strong><small>{expense.supplier || "Fornecedor não identificado"} · {expense.expense_date || "Sem data"} · {money(expense.amount)}</small></span></label>)}</div><button className="primary" onClick={attachExpenses} disabled={busy || !selectedExpenses.length}>Adicionar {selectedExpenses.length || ""} despesa(s) <span>→</span></button></> : <p className="muted">Sem despesas disponíveis. Use “Ler comprovantes” acima ou lance uma despesa manual.</p>}</>}
         </section>}
       </>}
     </section>

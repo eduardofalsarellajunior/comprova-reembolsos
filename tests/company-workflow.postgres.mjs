@@ -5,8 +5,8 @@ import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 
 const { PGlite } = await import(process.env.COMPROVA_PGLITE_MODULE || "@electric-sql/pglite");
-const [admin, employee, reviewer, finance, outsider] = [1, 2, 3, 4, 5].map((n) => `00000000-0000-4000-8000-00000000000${n}`);
-const emails = new Map([[admin, "admin@example.test"], [employee, "employee@example.test"], [reviewer, "reviewer@example.test"], [finance, "finance@example.test"], [outsider, "outsider@example.test"]]);
+const [admin, employee, reviewer, finance, outsider, existingOwner, newOwner] = [1, 2, 3, 4, 5, 6, 7].map((n) => `00000000-0000-4000-8000-00000000000${n}`);
+const emails = new Map([[admin, "admin@example.test"], [employee, "employee@example.test"], [reviewer, "reviewer@example.test"], [finance, "finance@example.test"], [outsider, "outsider@example.test"], [existingOwner, "existing-inepad@example.test"], [newOwner, "new-inepad@example.test"]]);
 const migrations = [
   "20261104120000_comprova_isolated_schema.sql",
   "20261106120000_comprova_reimbursement_core.sql",
@@ -17,7 +17,7 @@ const migrations = [
   "20261112123000_comprova_secure_approvals.sql",
 ];
 
-test("configuração, aprovação em duas etapas, reenvio e Financeiro com RLS", async () => {
+test("organograma, permissões, aprovação em duas etapas, reenvio e Financeiro com RLS", async () => {
   const db = await PGlite.create();
   const q = (sql, ...args) => db.query(sql, args);
   const rows = async (sql, ...args) => (await q(sql, ...args)).rows;
@@ -47,8 +47,28 @@ test("configuração, aprovação em duas etapas, reenvio e Financeiro com RLS",
     `);
     for (const [id, email] of emails) await q("insert into auth.users values ($1,$2,now())", id, email);
     for (const file of migrations) await db.exec(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), "utf8"));
+    await as(existingOwner);
+    const existingCompany = await val("select comprova.create_company('INEPAD LTDA')");
+    await db.exec("reset role");
+    await db.exec(await readFile(new URL("../supabase/migrations/20261116181505_comprova_organization_settings.sql", import.meta.url), "utf8"));
+    await as(existingOwner);
+    assert.deepEqual(
+      await rows("select d.name,count(j.id)::int as titles from comprova.departments d join comprova.job_titles j on j.department_id=d.id where d.company_id=$1 group by d.name order by d.name", existingCompany),
+      [{name:"Administrativo",titles:8},{name:"Comercial",titles:6},{name:"Operações",titles:9}],
+    );
+    assert.equal(await val("select count(*)::int from comprova.job_titles where name='Motoristas'"), 2);
+    assert.deepEqual(await val("select comprova.seed_inepad_departments($1)", existingCompany), {departments:0,job_titles:0});
+    const foreignDepartment = await val("select id from comprova.departments where company_id=$1 and name='Comercial'", existingCompany);
+    await q("update comprova.companies set name='INEPAD Equipe Arquivada' where id=$1", existingCompany);
+    await as(newOwner);
+    const newCompany = await val("select comprova.create_company('INEPAD CONSULTING LTDA.')");
+    assert.equal(await val("select count(*)::int from comprova.job_titles where company_id=$1", newCompany), 23);
+    assert.equal(await val("select count(*)::int from comprova.job_titles where company_id=$1", existingCompany), 0);
     await as(admin);
     const company = await val("select comprova.create_company('Empresa QA')");
+    assert.equal(await val("select count(*)::int from comprova.departments where company_id=$1", company), 0);
+    await assert.rejects(q("select comprova.seed_inepad_departments($1)", company), /apenas para a empresa INEPAD/);
+    await assert.rejects(q("select comprova.seed_inepad_departments($1)", newCompany), /Somente administradores/);
     const center = await val("insert into comprova.cost_centers(company_id,name) values ($1,'Comercial') returning id", company);
     for (const [id, role] of [[employee,"employee"],[reviewer,"approver"],[finance,"finance"]]) {
       await q("select comprova.invite_company_member($1,$2,$3)", company, emails.get(id), role);
@@ -56,6 +76,28 @@ test("configuração, aprovação em duas etapas, reenvio e Financeiro com RLS",
       assert.equal(await val("select comprova.claim_company_invitations()"), 1);
       await as(admin);
     }
+    const department = await val("insert into comprova.departments(company_id,name) values ($1,'Operações') returning id", company);
+    const secondDepartment = await val("insert into comprova.departments(company_id,name) values ($1,'Comercial') returning id", company);
+    const jobTitle = await val("insert into comprova.job_titles(company_id,department_id,name) values ($1,$2,'Analista') returning id", company, department);
+    const ownerMember = await val("select id from comprova.company_members where company_id=$1 and user_id=$2", company, admin);
+    const employeeMember = await val("select id from comprova.company_members where company_id=$1 and user_id=$2", company, employee);
+    await assert.rejects(q("insert into comprova.departments(company_id,name) values ($1,'operações')", company), /duplicate key/);
+    await assert.rejects(q("select comprova.update_company_member_assignment($1,$2,'employee',null,null)", company, ownerMember), /permanecer administrador/);
+    await assert.rejects(q("select comprova.update_company_member_assignment($1,$2,'employee',$3,null)", company, employeeMember, foreignDepartment), /nesta empresa/);
+    await assert.rejects(q("select comprova.update_company_member_assignment($1,$2,'employee',$3,$4)", company, employeeMember, secondDepartment, jobTitle), /não pertence ao departamento/);
+    await q("select comprova.update_company_member_assignment($1,$2,'employee',$3,$4)", company, employeeMember, department, jobTitle);
+    await assert.rejects(q("delete from comprova.job_titles where id=$1", jobTitle), /foreign key/);
+    await assert.rejects(q("delete from comprova.departments where id=$1", department), /foreign key/);
+    await assert.rejects(q("select comprova.invite_company_member($1,$2,'admin')", company, emails.get(employee)), /já está cadastrado/);
+    await q("insert into comprova.mileage_policies(company_id,name,rate_per_km,max_km,requires_route) values ($1,'Deslocamento',1.25,150,true)", company);
+    await assert.rejects(q("insert into comprova.mileage_policies(company_id,name,rate_per_km) values ($1,'Negativa',-1)", company), /check constraint/);
+    await as(employee);
+    assert.equal(await val("select job_title_id from comprova.company_members where id=$1", employeeMember), jobTitle);
+    assert.equal(await val("select count(*)::int from comprova.mileage_policies where company_id=$1", company), 1);
+    assert.equal(await val("select count(*)::int from comprova.departments where company_id=$1", existingCompany), 0);
+    assert.equal((await rows("update comprova.departments set name='Alterado' where id=$1 returning id", department)).length, 0);
+    await assert.rejects(q("select comprova.update_company_member_assignment($1,$2,'admin',null,null)", company, employeeMember), /Somente administradores/);
+    await as(admin);
     const flow = await val("select comprova.create_approval_flow($1,'Gestor e diretoria',$2::uuid[])", company, [reviewer, admin]);
     const alternative = await val("select comprova.create_approval_flow($1,'Apenas diretoria',$2::uuid[])", company, [admin]);
     await q("update comprova.companies set default_approval_flow_id=$1 where id=$2", alternative, company);

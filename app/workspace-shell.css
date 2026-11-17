@@ -1,0 +1,142 @@
+.inepadApp {
+  --inepad-navy: #0a2646;
+  --inepad-blue: #174f84;
+  --inepad-gold: #e3b04b;
+  --inepad-header-height: 60px;
+  --inepad-rail-width: 76px;
+  --ink: #132c48;
+  --muted: #566b80;
+  --cream: #f4f7fb;
+  --paper: #fff;
+  --mint: #eaf2fb;
+  --green: #174f84;
+  --lime: #e3b04b;
+  --line: #dbe4ed;
+  display: grid;
+  grid-template-columns: var(--inepad-rail-width) minmax(0, 1fr);
+  min-height: 100dvh;
+  background: #f4f7fb;
+}
+
+.inepadApp[data-menu-expanded="true"] { --inepad-rail-width: 224px; }
+.inepadIcon { display: block; flex: none; width: 20px; height: 20px; }
+.inepadSkipLink { position: fixed; z-index: 50; left: 8px; top: 8px; padding: 8px 14px; transform: translateY(-150%); background: #fff; color: #0a2646; border-radius: 8px; }
+.inepadSkipLink:focus { transform: none; }
+
+.inepadRail {
+  z-index: 10;
+  position: sticky;
+  top: 0;
+  grid-area: 1 / 1;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  align-self: start;
+  background: var(--inepad-navy);
+  color: #fff;
+  padding: 12px 10px;
+}
+.inepadRailBrand { display: flex; align-items: center; justify-content: center; position: relative; min-height: 56px; border-bottom: 1px solid #355270; padding-bottom: 12px; margin-bottom: 15px; }
+.inepadRailHome { display: grid; place-items: center; text-decoration: none; border-radius: 8px; }
+.inepadLogoSymbol { display: block; box-shadow: 0 0 0 1px #547391; border-radius: 10px; }
+.inepadLogoFull { display: none; height: auto; }
+.inepadRailToggle {
+  width: 28px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  position: absolute;
+  z-index: 1;
+  right: -23px;
+  top: 9px;
+  padding: 0;
+  color: #fff;
+  background: #174f84;
+  border: 1px solid #2f6090;
+  border-radius: 8px;
+}
+.inepadRailToggle:hover { background: #2365a4; }
+.inepadRailToggle .inepadIcon { width: 17px; height: 17px; }
+.inepadRailCaption { display: none; margin: 5px 10px 13px; color: #b3c7dc; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.inepadMainMenu { min-height: 0; display: grid; overflow: auto; align-content: start; gap: 7px; padding: 3px; margin: -3px; }
+.inepadMainMenu a { display: flex; min-height: 46px; padding: 0 9px; gap: 12px; align-items: center; justify-content: center; border: 1px solid transparent; border-radius: 8px; text-decoration: none; color: #f4f7fb; font-size: 13px; font-weight: 750; }
+.inepadMainMenu a span { display: none; }
+.inepadMainMenu a:hover { background: #143b64; }
+.inepadMainMenu a[aria-current="page"] { border-color: #4c7097; background: #194978; color: #fff; }
+.inepadMainMenu a[aria-current="page"] .inepadIcon { color: var(--inepad-gold); }
+.inepadRail :is(a, button):focus-visible { outline: 2px solid var(--inepad-gold); outline-offset: 2px; }
+.inepadMenuBackdrop { display: none; }
+.inepadApp[data-menu-expanded="true"] .inepadRail { padding-inline: 14px; }
+.inepadApp[data-menu-expanded="true"] .inepadRailBrand { justify-content: flex-start; min-height: 80px; }
+.inepadApp[data-menu-expanded="true"] .inepadRailHome { background: #fff; padding: 5px 10px; }
+.inepadApp[data-menu-expanded="true"] .inepadLogoSymbol { display: none; }
+.inepadApp[data-menu-expanded="true"] .inepadLogoFull { display: block; }
+.inepadApp[data-menu-expanded="true"] .inepadRailToggle { right: -27px; top: 20px; }
+.inepadApp[data-menu-expanded="true"] .inepadRailCaption,
+.inepadApp[data-menu-expanded="true"] .inepadMainMenu a span { display: block; }
+.inepadApp[data-menu-expanded="true"] .inepadMainMenu a { justify-content: flex-start; padding-inline: 12px; }
+
+.inepadFrame { grid-area: 1 / 2; display: flex; flex-direction: column; min-width: 0; min-height: 100dvh; }
+.inepadWorkspace { flex: 1; min-width: 0; }
+.inepadHeader {
+  position: sticky;
+  top: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  min-height: var(--inepad-header-height);
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 22px 0 28px;
+  border-bottom: 1px solid var(--line);
+  background: #fff;
+}
+.inepadHeaderCrumb { display: flex; gap: 9px; align-items: center; min-width: 0; color: var(--muted); font-size: 12px; }
+.inepadHeaderCrumb strong { color: var(--ink); font-size: 13px; }
+.inepadAccount { display: flex; gap: 10px; align-items: center; justify-content: flex-end; min-width: 0; }
+.inepadAccountLink { display: flex; gap: 8px; align-items: center; min-width: 0; color: var(--ink); text-decoration: none; font-size: 12px; font-weight: 750; }
+.inepadAccountLink:hover { text-decoration: underline; text-underline-offset: 3px; }
+.inepadAccountAvatar { display: grid; flex: none; place-items: center; width: 30px; height: 30px; border-radius: 50%; background: #e7eff9; color: #174f84; }
+.inepadAccountEmail { max-width: min(31vw, 225px); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.inepadLogout { display: flex; flex: none; gap: 6px; align-items: center; min-height: 34px; padding: 0 10px; background: #fff; border: 1px solid var(--line); border-radius: 7px; color: var(--ink); font-size: 11px; font-weight: 800; }
+.inepadLogout:hover { background: var(--cream); }
+.inepadLogout:disabled { opacity: .65; cursor: wait; }
+.inepadLogout .inepadIcon { width: 16px; height: 16px; }
+.inepadHeaderError { position: absolute; right: 16px; top: calc(100% + 6px); padding: 9px 12px; border-radius: 7px; font-size: 12px; color: #942b25; background: #ffefeb; box-shadow: 0 3px 18px #0a264626; }
+.inepadWorkspace .reportWorkspace { min-height: calc(100dvh - var(--inepad-header-height)); padding: clamp(22px, 4vw, 54px) clamp(16px, 3vw, 42px); border-top: 0; }
+.inepadWorkspace .reportWorkspace .sectionNumber { font: 800 10px/1.3 var(--font-sans), sans-serif; letter-spacing: .13em; text-transform: uppercase; }
+.inepadWorkspace .reportWorkspace .reportCard { border-color: var(--line); box-shadow: 0 4px 17px #0a26460c; }
+
+.authShell {
+  --ink: #132c48;
+  --muted: #53697f;
+  --green: #174f84;
+  --lime: #e3b04b;
+  --line: #dbe4ed;
+  background: linear-gradient(140deg, #eaf1f9 0%, #fff 57%, #f7f0df 100%);
+}
+.authShell .authCard { box-shadow: 0 18px 65px #132c481a; }
+.authShell:has(> .authCard:only-child) { grid-template-columns: minmax(0, 1fr); }
+.authShell .authCard > a { color: #174f84; text-decoration: underline; text-underline-offset: 3px; }
+.authShell .authCard > a.primary { color: #fff; text-decoration: none; }
+
+@media (max-width: 900px) {
+  .inepadHeaderCrumb > span { display: none; }
+}
+
+@media (max-width: 820px) {
+  .inepadApp, .inepadApp[data-menu-expanded="true"] { --inepad-rail-width: 55px; }
+  .inepadRail { padding-inline: 5px; }
+  .inepadRailToggle { right: -16px; width: 23px; }
+  .inepadMainMenu a { min-height: 44px; }
+  .inepadApp[data-menu-expanded="true"] .inepadRail { position: fixed; inset: 0 auto 0 0; width: min(224px, 76vw); z-index: 12; }
+  .inepadMenuBackdrop { display: block; position: fixed; inset: 0; z-index: 11; width: 100%; height: 100%; border: 0; background: #071c3873; }
+}
+
+@media (max-width: 640px) {
+  .inepadHeader { padding: 0 9px 0 20px; gap: 6px; }
+  .inepadAccount { gap: 5px; }
+  .inepadAccountEmail, .inepadLogout span { display: none; }
+  .inepadLogout { padding-inline: 6px; }
+  .inepadWorkspace .reportWorkspace { padding-inline: 10px; }
+}

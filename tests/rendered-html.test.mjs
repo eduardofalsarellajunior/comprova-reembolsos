@@ -18,7 +18,14 @@ async function ephemeralPort() {
   return port;
 }
 
-test("Next serve as áreas do COMPROVA e exige sessão nas rotas de reembolso", { timeout: 35000 }, async (t) => {
+function assertRedirect(response, base, destination) {
+  assert.ok([307, 308].includes(response.status), `Redirecionamento esperado para ${destination}, recebido ${response.status}`);
+  const location = response.headers.get("location");
+  assert.ok(location, "Cabeçalho Location do redirecionamento ausente");
+  assert.equal(new URL(location, base).href, new URL(destination, base).href);
+}
+
+test("INEPAD Reembolso abre em Relatórios e mantém as operações autenticadas", { timeout: 35000 }, async (t) => {
   const port = await ephemeralPort();
   const base = `http://127.0.0.1:${port}`;
   const server = spawn(process.execPath, [next, "start", "-H", "127.0.0.1", "-p", String(port)], { cwd: root, stdio: ["ignore","pipe","pipe"], windowsHide: true });
@@ -29,11 +36,23 @@ test("Next serve as áreas do COMPROVA e exige sessão nas rotas de reembolso", 
   let response;
   for (let i = 0; i < 40; i++) {
     if (server.exitCode !== null) break;
-    try { response = await fetch(base, { signal: AbortSignal.timeout(500) }); break; } catch { await sleep(250); }
+    try { response = await fetch(base + "/login", { redirect: "manual", signal: AbortSignal.timeout(500) }); break; } catch { await sleep(250); }
   }
   assert.equal(response?.status, 200, `Servidor local não iniciou ou respondeu com erro:\n${log}`);
-  assert.match(await response.text(), /comprova/i);
-  for (const [path, marker] of [["/empresa", /Carregando empresa/], ["/relatorios", /Carregando relatórios/], ["/aprovacoes", /Carregando aprovações/]]) {
+  assert.match(await response.text(), /INEPAD Reembolso/);
+
+  const home = await fetch(base, { redirect: "manual" });
+  assertRedirect(home, base, "/relatorios");
+  const oauthCallback = await fetch(base + "/?code=offline-test&redirect_to=https%3A%2F%2Fexample.test", { redirect: "manual" });
+  assertRedirect(oauthCallback, base, "/relatorios?code=offline-test");
+  const formerCompany = await fetch(base + "/empresa", { redirect: "manual" });
+  assertRedirect(formerCompany, base, "/configuracoes?secao=dados-empresa");
+
+  const logo = await fetch(base + "/inepad-reembolso/logo.png");
+  assert.equal(logo.status, 200, "A marca INEPAD Reembolso deve estar disponível");
+  assert.match(logo.headers.get("content-type") || "", /^image\/png\b/);
+
+  for (const [path, marker] of [["/configuracoes", /Carregando configurações/], ["/relatorios", /Carregando relatórios/], ["/aprovacoes", /Carregando aprovações/]]) {
     const page = await fetch(base + path);
     assert.equal(page.status, 200, path);
     assert.match(await page.text(), marker, path);
@@ -41,6 +60,7 @@ test("Next serve as áreas do COMPROVA e exige sessão nas rotas de reembolso", 
   const id = "00000000-0000-4000-8000-000000000001";
   for (const [method, path] of [
     ["GET", "/api/reports"], ["GET", "/api/approval-flows"], ["GET", "/api/policies"],
+    ["POST", "/api/analyze"], ["POST", `/api/reports/${id}/expenses`],
     ["POST", `/api/reports/${id}/submit`], ["POST", `/api/approvals/${id}/decision`],
     ["POST", `/api/reports/${id}/paid`],
   ]) {

@@ -1,6 +1,6 @@
-# Comprova
+# INEPAD Reembolso
 
-Aplicativo para transformar lotes de fotos, prints e PDFs de comprovantes em uma tabela editável, com login e histórico privado.
+Aplicativo para criar relatórios de reembolso, ler e conferir comprovantes dentro do relatório e acompanhar as aprovações. A página inicial abre em **Relatórios**; o menu lateral também dá acesso a **Aprovações** e **Configurações**.
 
 ## Configuração
 
@@ -21,7 +21,7 @@ A integração com a VExpenses identifica o usuário pelo mesmo e-mail utilizado
 
 ## Arquitetura do produto
 
-O plano para evoluir o COMPROVA de leitor de comprovantes para sistema completo de reembolso está em [`docs/ARQUITETURA-CLONE-VEXPENSES-V1.md`](docs/ARQUITETURA-CLONE-VEXPENSES-V1.md).
+O histórico da evolução do COMPROVA, agora INEPAD Reembolso, para um sistema de gestão de reembolsos está em [`docs/ARQUITETURA-CLONE-VEXPENSES-V1.md`](docs/ARQUITETURA-CLONE-VEXPENSES-V1.md). A mudança de marca não renomeia o repositório, o domínio nem os recursos Supabase.
 
 ## Desenvolvimento
 

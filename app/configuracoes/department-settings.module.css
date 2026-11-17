@@ -1,0 +1,278 @@
+.panel {
+  min-width: 0;
+  color: var(--settings-ink);
+}
+
+.body {
+  padding: 0 clamp(12px, 2vw, 24px);
+}
+
+.companyContext {
+  display: flex;
+  justify-content: flex-end;
+  margin: 0 0 12px;
+}
+
+.departmentBar,
+.jobRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.empty,
+.noJobs {
+  margin: 0;
+  color: var(--settings-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.actions,
+.headerActions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.headerActions {
+  gap: 7px;
+}
+
+.button,
+.primary,
+.edit,
+.addJob,
+.danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 27px;
+  padding: 4px 7px;
+  border: 1px solid var(--settings-line);
+  border-radius: 4px;
+  color: var(--settings-blue);
+  background: #fff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.primary,
+.edit {
+  border-color: #376b39;
+  background: #376b39;
+  color: #fff;
+}
+
+.addJob {
+  border-color: #0c609b;
+  background: #0c609b;
+  color: #fff;
+}
+
+.danger {
+  border-color: #a92e28;
+  background: #a92e28;
+  color: #fff;
+}
+
+.headerActions button,
+.editor button {
+  min-height: 33px;
+  padding: 6px 10px;
+}
+
+.panel button svg {
+  flex: none;
+}
+
+.panel button:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.panel button:enabled:hover {
+  filter: brightness(0.94);
+}
+
+.panel button:focus-visible,
+.editor input:focus-visible {
+  outline: 2px solid var(--settings-focus);
+  outline-offset: 2px;
+}
+
+.directory {
+  overflow: hidden;
+  border: 1px solid var(--settings-line);
+  background: #fff;
+}
+
+.columnTitle,
+.jobs h3 {
+  color: var(--settings-muted);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.columnTitle {
+  padding: 12px 14px;
+}
+
+.departmentBar {
+  flex-wrap: wrap;
+  padding: 6px 13px;
+  border-top: 1px solid var(--settings-line);
+  border-bottom: 1px solid var(--settings-line);
+  background: #edf1f5;
+}
+
+.departmentBar h2 {
+  flex: 1 1 150px;
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  font-weight: 750;
+}
+
+.jobs {
+  padding: 12px clamp(12px, 1.5vw, 22px);
+}
+
+.jobs h3 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 5px 0 12px;
+}
+
+.jobs h3 span {
+  padding: 2px 6px;
+  border-radius: 20px;
+  background: #eff3f7;
+  color: var(--settings-muted);
+  letter-spacing: 0;
+}
+
+.jobList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.jobList li {
+  border-top: 1px solid var(--settings-line);
+}
+
+.jobRow {
+  min-height: 39px;
+  padding: 5px 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.jobRow > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.jobRow .actions {
+  flex-shrink: 0;
+}
+
+.editor {
+  display: flex;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 13px;
+  margin-bottom: 8px;
+  background: var(--settings-surface);
+  border: 1px solid var(--settings-line);
+  border-radius: 8px;
+}
+
+.editor label {
+  display: grid;
+  flex: 1 1 200px;
+  gap: 5px;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.editor input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 36px;
+  padding: 7px 9px;
+  border: 1px solid var(--settings-line);
+  border-radius: 6px;
+  color: var(--settings-ink);
+  background: #fff;
+  font-size: 13px;
+}
+
+.department > .editor {
+  margin: 12px 14px 0;
+}
+
+.notice,
+.error,
+.empty {
+  margin: 10px 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #fff;
+  border: 1px solid var(--settings-line);
+}
+
+.notice,
+.error {
+  font-size: 13px;
+}
+
+.notice {
+  color: var(--green);
+  background: #eaf5ee;
+}
+
+.error {
+  color: #922b23;
+  background: #fdf0ee;
+}
+
+.empty p {
+  margin: 0 0 8px;
+}
+
+@media (max-width: 550px) {
+  .jobs {
+    padding: 8px 11px 12px;
+  }
+
+  .jobRow {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .jobRow > span {
+    flex: 1 1 170px;
+  }
+
+  .button,
+  .primary,
+  .edit,
+  .addJob,
+  .danger,
+  .headerActions button {
+    min-height: 40px;
+  }
+}

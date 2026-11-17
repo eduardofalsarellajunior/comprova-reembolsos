@@ -1,0 +1,63 @@
+.reader {
+  min-width: 0;
+  margin: 20px 0;
+  border: 1px solid #d7e4ef;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+.reader > summary {
+  cursor: pointer;
+  color: #115a9d;
+  padding: 16px;
+}
+.reader > summary:focus-visible { outline: 2px solid #0878cd; outline-offset: 2px; border-radius: 8px; }
+.reader > summary strong { margin-left: 4px; }
+.reader > summary small { display: block; margin: 5px 0 0 17px; color: #536579; font-size: 12px; }
+.body { padding: 0 16px 16px; min-width: 0; }
+.dropzone {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px;
+  background: white;
+  border: 1px dashed #8daac7;
+  border-radius: 8px;
+}
+.dropzone small { display: block; margin-top: 5px; color: #536579; font-size: 12px; }
+.dragging { background: #eaf5ff; border-color: #0a73c8; }
+.notice { font-size: 13px; color: #16518a; margin: 12px 0; }
+.review { display: grid; gap: 12px; margin-top: 18px; }
+.review h4, .review p { margin: 0; }
+.review > button { justify-self: start; }
+.expense { min-width: 0; background: white; border: 1px solid #dbe5ef; border-radius: 8px; padding: 12px; }
+.expenseHeading { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; font-size: 12px; }
+.expenseHeading label { display: flex; align-items: center; gap: 5px; }
+.expenseHeading button { min-width: 0; overflow-wrap: anywhere; }
+.expenseFields {
+  margin: 10px 0 4px;
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.expenseFields label { display: grid; gap: 5px; font-size: 12px; font-weight: 700; color: #405267; }
+.expenseFields input, .expenseFields select {
+  min-width: 0;
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #dae2eb;
+  border-radius: 6px;
+  background: white;
+  color: #26384b;
+}
+.expenseFields .full { grid-column: 1 / -1; }
+.historyToggle { margin-top: 16px; }
+.history { min-width: 0; margin-top: 14px; }
+.history :global(.tableWrap) { overflow-x: auto; }
+.history :global(.resultsHeader) { flex-wrap: wrap; gap: 12px; margin: 12px 0; align-items: flex-start; }
+.history :global(.resultsHeader h2) { font-size: 20px; letter-spacing: -.4px; }
+@media (max-width: 680px) {
+  .expenseFields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .body { padding-inline: 10px; }
+}
