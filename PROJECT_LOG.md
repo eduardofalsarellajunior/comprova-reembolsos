@@ -73,3 +73,11 @@ Histórico cronológico e cumulativo. Datas de referência em **America/Sao_Paul
 - **Autorização e base:** usuário autorizou publicar em produção. GitHub confirmou `main` em `477aecf`; Vercel retornou o deploy anterior `dpl_Egrw7WncJf6xZoapmVBo2Wm9wMUx`, READY. Árvore de origem em `codex/comprova-v1-preview`, com trabalho anterior ainda não versionado e sem stage inicial.
 - **Bloqueio confirmado:** inspeção somente leitura do Supabase destino `xammlyxakxrysjrzdbeq` mostrou que as três tabelas de Configurações, duas colunas de classificação de membros e o RPC de edição ainda não existem. Logo, Departamentos e cargos, Membros de equipe e Quilometragem não estão prontos para produção.
 - **Decisão:** preparar o release com arquivos explícitos em cópia separada, sem push. Aplicar somente a migration local revisada depois de aprovação específica: ela não altera schema `public`, usuários Auth, Storage ou outros sistemas; no schema `comprova`, cria as tabelas com RLS, atualiza a gestão de membros e prepara o catálogo INEPAD. Acompanhar a Vercel somente após verificar o banco.
+- **Candidato local:** `a99e210a81bd32979fe78e7f12fbaf2184df8391`, 35 arquivos selecionados em cópia separada. Hashes das cópias e `git diff --cached --check` conferidos; suíte descartável de banco e teste das seções passaram novamente. Sem changes remotas, push ou deploy do candidato.
+
+## 2026-11-17 — Migration de Configurações em produção
+
+- **Autorização:** usuário aprovou explicitamente a migração após a solicitação de publicação. Revalidados a ponta `477aecf` na `main`, a Vercel e o schema de destino antes da operação.
+- **Execução:** somente a migration versionada `20261116181505_comprova_organization_settings.sql` em `xammlyxakxrysjrzdbeq` / `comprova`; registro remoto `20261117160746`. Sem migração em lote.
+- **Resultado:** Administrativo 8 cargos, Comercial 6, Operações 9; três tabelas com RLS, seis políticas e dois RPCs conferidos. Três buckets do COMPROVA permaneceram privados, a lista de namespaces não mudou e os vínculos da equipe mantiveram a contagem. Nenhuma alteração em Auth ou Storage.
+- **Próxima etapa:** enviar o release de código `a99e210` e este registro à `main` e validar o deploy no domínio. Em caso de problema com o front, preservar o banco novo e usar a versão anterior do app; não desfazer DDL de forma destrutiva.

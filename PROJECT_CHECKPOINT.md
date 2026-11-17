@@ -3,7 +3,7 @@
 - **Data/fuso:** 17/11/2026, America/Sao_Paulo.
 - **Responsável atual:** conta de origem / Local (alias); conta de destino ainda não assumiu a tarefa.
 - **Tarefa atual:** publicação do redesign INEPAD Reembolso em produção.
-- **Última etapa concluída:** redesign aplicado e validado em cópia descartável; pré-check confirma que Configurações depende de migration ainda não aplicada.
+- **Última etapa concluída:** candidato de código `a99e210a81bd32979fe78e7f12fbaf2184df8391` verificado e migration de Configurações aplicada em produção após aprovação; histórico Supabase `20261117160746`.
 - **Estado de transferência:** o handoff documental anterior permanece na [branch codex/comprova-handoff](https://github.com/eduardofalsarellajunior/comprova-reembolsos/tree/codex/comprova-handoff), SHA `2ae7d6a2e7e8d9df3b44e574c297fbaf0e85cadd`. Ele não inclui a implementação de Configurações nem o redesign.
 
 ## Ponto de partida observado
@@ -32,9 +32,10 @@
 - **Neste handoff:** origem, branches e árvore verificadas. O commit de transferência passou em `git diff --cached --check`; os quatro documentos e os 18 links relativos foram validados. No checkout principal, o índice continuou vazio. Não executados build ou testes funcionais: alteração documental com uma regra de não-deploy na branch de transferência.
 - **Configurações, teste anterior:** build Next/TypeScript, smoke, ESLint focado, suíte de banco descartável e teste de navegação passaram. Faltam a aplicação aprovada da migration, o deploy aprovado e a validação com perfis/contas reais após a publicação. A produção não foi revalidada nesta sessão.
 - **Redesign, nesta tarefa:** build Webpack com TypeScript e fontes simuladas, ESLint de `app` e do teste alterado, smoke HTTP e teste das 18 seções passaram. Chromium em desktop e celular validou login fictício, busca em Configurações, menu recolhível e upload de comprovante fictício, OCR simulado, revisão e vínculo pelo endpoint real contra um banco simulado. O relatório ficou em rascunho. Não houve sessão Office 365 real, consumo de OCR real nem teste em produção.
-- **Próxima ação exata:** obter autorização explícita para aplicar apenas `20261116181505_comprova_organization_settings.sql` no schema `comprova` de `xammlyxakxrysjrzdbeq`. O deploy do app foi autorizado; não subir a nova versão antes da dependência no banco.
-- **Ordem da publicação:** revalidar a base GitHub, histórico e alvo do Supabase; aplicar a migration aprovada e conferir RLS, permissões e carga de 3 departamentos/23 cargos somente na empresa INEPAD identificada; depois enviar o commit revisado à `main` e validar Vercel READY, redirect, marca e APIs sem sessão. Não apresentar smoke anônimo como teste de Office 365 ou OCR reais.
+- **Próxima ação exata:** confirmar ponta na `main`, deployment Vercel em READY e domínio com o redesign (redirect, marca, páginas e APIs sem sessão). Não apresentar smoke anônimo como teste de Office 365 ou OCR reais.
+- **Banco verificado:** `20261116181505_comprova_organization_settings.sql` no schema `comprova` de `xammlyxakxrysjrzdbeq`. RLS nas três tabelas, seis políticas com checagem de vínculo/admin, RPCs sem acesso anônimo, 3 departamentos/23 cargos na única empresa elegível e buckets privados mantidos.
 - **Recuperação:** referência anterior `477aecf` / deploy `dpl_Egrw7WncJf6xZoapmVBo2Wm9wMUx`. Se o front precisar voltar, preservar dados e tabelas novas; não reverter o banco compartilhado de forma destrutiva. A RPC de convites existente passa a rejeitar convite de e-mail já cadastrado, sem sobrescrever permissões.
+- **Candidato de release:** `a99e210` mais o registro documental desta migração, preparados em clone separado. Pai do candidato `477aecf`, 35 arquivos, sem comprovantes, capturas, scripts locais de robô ou credenciais. O checkout de origem não foi trocado de branch.
 
 ## Transferência e retomada
 
