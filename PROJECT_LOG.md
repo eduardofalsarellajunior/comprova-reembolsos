@@ -209,3 +209,11 @@ Histórico cronológico e cumulativo. Datas de referência em **America/Sao_Paul
 - **Verificações:** build Webpack/TypeScript 21/21 páginas; lint integral sem erros/avisos; smoke HTTP, navegação e importação 5/5; browser completo de Configurações desktop/celular e nova regressão aprovados, zero requisições externas. Captura fictícia inspecionada no Temp. Suítes SQL não repetidas, pois não houve alteração de SQL.
 - **Publicação:** snapshot preventivo `10b795061a2d6665d8152580b1c0b2311f6f570d` confirmado somente em `codex/continuity`; a próxima captura registra estes resultados. Main preservada em `b36af53`; nenhum deploy, banco compartilhado, e-mail ou VExpenses real.
 - **Próxima microetapa:** cobrir no browser criação/importação de equipe e gravação/recarga dos vínculos, com mocks locais, sem dados da planilha privada.
+
+## 2026-11-17 20:54:00 -03:00 — Publicação autorizada, acesso ao banco bloqueado
+
+- **Autorização:** usuário perguntou se já estava em produção e autorizou publicar. Candidato validado `d5eff940468361de7c983a1b8fd7f7664cc99b34`; main remota `b36af53`, sem avanço concorrente. A origem e seus arquivos foram preservados; fetch somente atualizou referências remotas.
+- **Release:** comparação contra main mostrou 44 arquivos, incluindo quatro migrations V2 necessárias à nova UI; não é seguro promover o conjunto sem verificar o banco.
+- **Vercel:** autenticação inicial exigiu retomada; escopo da equipe resolveu o acesso. Projeto `prj_zgL4flq4sDixA3ieCocPRPYFPJPx` na equipe `team_EE66nya5zDXe8qokNve0PUL0`; domínio confirmado no deploy `dpl_7VFpffhuCx8UDiVB3Jox5mCd6Xxn`, READY/production, commit `b36af53`.
+- **Bloqueio:** Supabase get_project e list_migrations negaram acesso a `xammlyxakxrysjrzdbeq`; inventário da conexão não contém esse projeto. Usuário precisa reconectar com a conta correta ou conceder acesso. Não foram acessados bancos de outros produtos.
+- **Resultado:** nenhuma migration, escrita no banco, alteração de variável, deploy, e-mail ou push à main. Autoridade de deploy preservada para retomar após correção do acesso; verificar separadamente o escopo de SQL antes de executar as quatro migrations.
