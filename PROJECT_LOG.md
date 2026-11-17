@@ -113,3 +113,11 @@ Histórico cronológico e cumulativo. Datas de referência em **America/Sao_Paul
 
 - **Teste local concluído:** o publisher criou `5c1040cee81f88d12e809ccd2a59d3df75fe132b` somente em clone temporário (sem `-Publish`). Os 55 arquivos foram copiados e conferidos por hash; 29 diferem da `main`; diff staged sem erros. O índice e a branch de origem não foram alterados.
 - **Próxima operação:** repetir a mesma captura com `-Publish`, revisar a ponta remota antes/depois e confirmar que a Vercel não criou deploy da branch. O SHA final pode diferir do ensaio porque este registro também será incluído.
+
+## 2026-11-17 15:03:47 -03:00 — Primeiro checkpoint remoto confirmado
+
+- **Entrega:** `scripts/sync-continuity.ps1 -ExpectedRemoteSha absent -Publish` criou e publicou `db431990ddff1edb4d7d24d3258d7c1fcfdab998` exclusivamente em `codex/continuity`. Confirmado por `git ls-remote`; a `main` antes/depois permaneceu `b36af53`.
+- **Conteúdo:** 55 arquivos revisados no snapshot, 29 alterados em relação à base, com o código parcial, os quatro documentos, o publisher e a regra de não-deploy. Sem planilha original, dados pessoais reais, credenciais ou comprovantes.
+- **Concorrência:** repetir a expectativa `absent` após criação da branch abortou antes de clone/commit/push. Não houve force nem merge.
+- **Vercel:** consulta da branch/SHA retornou zero deploys; domínio de produção permaneceu no deploy anterior do redesign, READY. Não houve SQL remoto nesta configuração.
+- **Continuidade:** atualizar e sincronizar este resultado na próxima revisão; depois retomar a implementação V2 pelo ponto marcado no checkpoint, sem tratar o snapshot parcial como build aprovado.

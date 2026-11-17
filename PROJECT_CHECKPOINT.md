@@ -2,11 +2,11 @@
 
 ## Checkpoint atual — continuidade e Configurações V2 (incompleto)
 
-- **Atualizado:** 2026-11-17 15:01:49 -03:00, America/Sao_Paulo.
+- **Atualizado:** 2026-11-17 15:03:47 -03:00, America/Sao_Paulo.
 - **Ambiente:** Local/Windows, checkout principal do COMPROVA; não é Cloud nem worktree. A pasta inicial SDR por Voz não pertence a este produto.
 - **Objetivo:** concluir Configurações V2 sem perder o trabalho entre contas. Nesta microetapa, implementar a continuidade automática, sem alterar funcionalidades.
-- **Última etapa concluída:** regra permanente, manifesto de 55 arquivos e script testados; commit isolado de ensaio criado com sucesso. Sintaxe PowerShell, links, hashes e `git diff --cached --check` conferidos; três testes puros do importador passaram.
-- **Em execução:** primeiro snapshot na branch `codex/continuity`. Na revisão-base deste documento essa branch ainda não existia; confirmar a ponta após o push. Conteúdo parcial, não homologado e não liberado para deploy.
+- **Última etapa concluída:** primeiro snapshot publicado e confirmado no GitHub, SHA `db431990ddff1edb4d7d24d3258d7c1fcfdab998`. Publisher, bloqueio por SHA divergente, hashes e `git diff --cached --check` testados; três testes puros do importador passaram.
+- **Em execução:** registro do resultado do primeiro checkpoint e sincronização incremental dos documentos na mesma branch. Conteúdo funcional parcial, não homologado e não liberado para deploy.
 - **Git:** origem `codex/comprova-v1-preview`, HEAD `477aecfa6563e8e6692ce0624133a7be6ad370ac`; `main` remota `b36af53f175190ef362f9a7a570b656a093a07a1`. O snapshot parte da `main` num clone separado; não usar a `main` local antiga. Autorização automática restrita a `codex/continuity`.
 - **Arquivos:** lista explícita em [scripts/continuity-files.json](scripts/continuity-files.json). Inclui os quatro documentos, script/allowlist, componentes de Configurações, validação de relatório/rotas, importador CSV/conversor XLS, testes e migrations novas. Não houve exclusão nesta etapa.
 - **Decisões:** BRL para novas operações sem converter históricos; manter tabelas/fluxos antigos para o histórico; nomes de tipo Normal/Intermediário/Administrador com compatibilidade de papéis internos; sem elevar usuários existentes por importação ambígua; perfis privados por empresa. Estas decisões ainda exigem testes.
@@ -17,7 +17,8 @@
 - **Contratos para integração:** `TeamSettings({ companyId, ownerId, userId, members, busy, onToggle, onRefresh })`; `AccountSettings({ section, userId, email, companyId? })`; `ProjectSettings({ companyId, members })`; `ExpenseCatalogSettings({ companyId, kind })`; `ExpensePolicySettings({ companyId, admin })`; `MileagePolicySettings({ companyId, admin })`.
 - **Migrations V2:** `20261117164803_comprova_policy_catalog_v2.sql`, `20261117164815_comprova_member_profiles_import.sql`, `20261117164832_comprova_project_members_and_approvals.sql` contêm código parcial/revisão pendente; `20261117165624_comprova_reporting_v2_mail.sql` está vazio. Nenhuma aplicada. Sem serviço de e-mail/configuração de remetente implementado.
 - **Produção preservada:** Vercel `dpl_7VFpffhuCx8UDiVB3Jox5mCd6Xxn`, revisão `b36af53`, banco só com a migration organizacional previamente aprovada. A configuração de continuidade não acessa o banco.
-- **Sincronização:** o primeiro commit deve levar este documento e o código parcial juntos, além da regra de não-deploy da branch. Um arquivo local não prova push. Compare `git ls-remote origin refs/heads/codex/continuity` e o SHA que a origem entregou.
+- **Sincronização:** primeiro commit confirmado em `db431990ddff1edb4d7d24d3258d7c1fcfdab998`; esta revisão registra esse resultado e pode ter SHA posterior. O snapshot leva código, quatro documentos e bloqueio de deploy juntos. Compare a ponta de `git ls-remote origin refs/heads/codex/continuity` com o SHA entregue; não tente gravar o hash do próprio commit dentro dele.
+- **Isolamento conferido:** a consulta de deploys da branch/SHA retornou vazia; domínio de produção continuou em `b36af53`, deploy `dpl_7VFpffhuCx8UDiVB3Jox5mCd6Xxn` READY. Índice e branch da origem preservados.
 
 ### Próximos checkpoints e retomada
 
