@@ -201,3 +201,11 @@ Histórico cronológico e cumulativo. Datas de referência em **America/Sao_Paul
 - **Evidência:** browser sintético contra o build QA anterior falhou exatamente ao digitar a vírgula de `51,80`: esperado `51,`, recebido string vazia. As verificações anteriores de Configurações passaram até esse ponto.
 - **Código pronto para ensaio:** histórico preserva string de edição; salvar/exportar/assistir usam valor revisado; falha de persistência interrompe o assistido e aparece dentro do modal. Sintaxe do teste e diff check passaram. Build/browser do patch ainda não executados.
 - **Próxima ação:** preservar este snapshot preventivo e reconstruir no Temp com configuração fictícia; não há teste em produção ou VExpenses real.
+
+## 2026-11-17 19:39:32 -03:00 — Histórico e assistido corrigidos e validados
+
+- **Código:** o histórico usa rascunho textual do valor, resolvido por conversão comum ao salvar/exportar/copiar. O assistido exige sucesso da persistência antes de copiar dados/abrir VExpenses e informa a falha dentro do modal. Sem mudanças de dependência, API ou migration.
+- **Evidência antes/depois:** browser contra build anterior reproduziu campo vazio em `51,`; patch passou digitação por tecla de `51,80`, persistência 51.8, exportação 51,80, rejeição de 51,800 sem PATCH, erro 403 sem clipboard/window.open, erro legível no modal e retomada com 52.3. Relatório fictício permaneceu rascunho.
+- **Verificações:** build Webpack/TypeScript 21/21 páginas; lint integral sem erros/avisos; smoke HTTP, navegação e importação 5/5; browser completo de Configurações desktop/celular e nova regressão aprovados, zero requisições externas. Captura fictícia inspecionada no Temp. Suítes SQL não repetidas, pois não houve alteração de SQL.
+- **Publicação:** snapshot preventivo `10b795061a2d6665d8152580b1c0b2311f6f570d` confirmado somente em `codex/continuity`; a próxima captura registra estes resultados. Main preservada em `b36af53`; nenhum deploy, banco compartilhado, e-mail ou VExpenses real.
+- **Próxima microetapa:** cobrir no browser criação/importação de equipe e gravação/recarga dos vínculos, com mocks locais, sem dados da planilha privada.
