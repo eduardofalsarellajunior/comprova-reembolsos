@@ -2,11 +2,11 @@
 
 ## Checkpoint atual — continuidade e Configurações V2 (incompleto)
 
-- **Atualizado:** 2026-11-17 15:37:01 -03:00, America/Sao_Paulo.
+- **Atualizado:** 2026-11-17 15:39:35 -03:00, America/Sao_Paulo.
 - **Ambiente:** Local/Windows, checkout principal do COMPROVA; não é Cloud nem worktree. A pasta inicial SDR por Voz não pertence a este produto.
 - **Objetivo:** concluir Configurações V2 sem perder o trabalho entre contas. Nesta microetapa, criar o prompt reutilizável de retomada solicitado pelo usuário, sem alterar funcionalidades.
-- **Última etapa concluída:** [PROMPT-RETOMADA.md](PROMPT-RETOMADA.md) criado e revisado; inclui Local/worktree/Cloud, leitura das evidências, checkpoints de aproximadamente cinco minutos, autorização exclusiva de push em continuidade e limites de segurança. A entrega documental anterior está confirmada no GitHub em `1762c491221a0487e098f8fb7cb343c474d881fd`.
-- **Em execução:** validação e sincronização do prompt e dos registros com a branch de continuidade. Conteúdo funcional V2 continua parcial, não homologado e não liberado para deploy.
+- **Última etapa concluída:** [PROMPT-RETOMADA.md](PROMPT-RETOMADA.md) criado, revisado e confirmado no GitHub em `c57d6a6a83a35b1ece598364848efc243a74616a`; inclui Local/worktree/Cloud, leitura das evidências, checkpoints de aproximadamente cinco minutos, autorização exclusiva de push em continuidade e limites de segurança. Seis arquivos documentais/de suporte alterados; nenhum código funcional modificado por esta microetapa.
+- **Em execução:** entrega do prompt e registro da confirmação do snapshot; nenhuma nova etapa funcional iniciada. Conteúdo funcional V2 continua parcial, não homologado e não liberado para deploy.
 - **Git:** origem `codex/comprova-v1-preview`, HEAD `477aecfa6563e8e6692ce0624133a7be6ad370ac`; `main` remota `b36af53f175190ef362f9a7a570b656a093a07a1`. O snapshot parte da `main` num clone separado; não usar a `main` local antiga. Autorização automática restrita a `codex/continuity`.
 - **Arquivos:** lista explícita em [scripts/continuity-files.json](scripts/continuity-files.json), agora com 56 caminhos. Nesta microetapa: novo `PROMPT-RETOMADA.md`, referência em `AGENTS.md`, allowlist e atualização dos três registros. Demais arquivos funcionais apenas preservados no snapshot; nenhuma exclusão.
 - **Decisões:** BRL para novas operações sem converter históricos; manter tabelas/fluxos antigos para o histórico; nomes de tipo Normal/Intermediário/Administrador com compatibilidade de papéis internos; sem elevar usuários existentes por importação ambígua; perfis privados por empresa. Estas decisões ainda exigem testes.
@@ -17,7 +17,7 @@
 - **Contratos para integração:** `TeamSettings({ companyId, ownerId, userId, members, busy, onToggle, onRefresh })`; `AccountSettings({ section, userId, email, companyId? })`; `ProjectSettings({ companyId, members })`; `ExpenseCatalogSettings({ companyId, kind })`; `ExpensePolicySettings({ companyId, admin })`; `MileagePolicySettings({ companyId, admin })`.
 - **Migrations V2:** `20261117164803_comprova_policy_catalog_v2.sql`, `20261117164815_comprova_member_profiles_import.sql`, `20261117164832_comprova_project_members_and_approvals.sql` contêm código parcial/revisão pendente; `20261117165624_comprova_reporting_v2_mail.sql` está vazio. Nenhuma aplicada. Sem serviço de e-mail/configuração de remetente implementado.
 - **Produção preservada:** Vercel `dpl_7VFpffhuCx8UDiVB3Jox5mCd6Xxn`, revisão `b36af53`, banco só com a migration organizacional previamente aprovada. A configuração de continuidade não acessa o banco.
-- **Sincronização:** base remota conferida nesta microetapa: `1762c491221a0487e098f8fb7cb343c474d881fd`; o novo prompt ainda será publicado sobre ela. O snapshot leva código, documentos, prompt e bloqueio de deploy juntos. Compare a ponta de `git ls-remote origin refs/heads/codex/continuity` com o SHA entregue; não tente gravar o hash do próprio commit dentro dele.
+- **Sincronização:** prompt confirmado em `c57d6a6a83a35b1ece598364848efc243a74616a`; esta revisão registra o resultado e pode ter SHA posterior. O snapshot leva código, documentos, prompt e bloqueio de deploy juntos. Compare a ponta de `git ls-remote origin refs/heads/codex/continuity` com o SHA entregue; não tente gravar o hash do próprio commit dentro dele.
 - **Isolamento conferido:** a consulta de deploys da branch/SHA retornou vazia; domínio de produção continuou em `b36af53`, deploy `dpl_7VFpffhuCx8UDiVB3Jox5mCd6Xxn` READY. Índice e branch da origem preservados.
 
 ### Próximos checkpoints e retomada
