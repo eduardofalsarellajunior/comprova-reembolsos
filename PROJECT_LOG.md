@@ -217,3 +217,10 @@ Histórico cronológico e cumulativo. Datas de referência em **America/Sao_Paul
 - **Vercel:** autenticação inicial exigiu retomada; escopo da equipe resolveu o acesso. Projeto `prj_zgL4flq4sDixA3ieCocPRPYFPJPx` na equipe `team_EE66nya5zDXe8qokNve0PUL0`; domínio confirmado no deploy `dpl_7VFpffhuCx8UDiVB3Jox5mCd6Xxn`, READY/production, commit `b36af53`.
 - **Bloqueio:** Supabase get_project e list_migrations negaram acesso a `xammlyxakxrysjrzdbeq`; inventário da conexão não contém esse projeto. Usuário precisa reconectar com a conta correta ou conceder acesso. Não foram acessados bancos de outros produtos.
 - **Resultado:** nenhuma migration, escrita no banco, alteração de variável, deploy, e-mail ou push à main. Autoridade de deploy preservada para retomar após correção do acesso; verificar separadamente o escopo de SQL antes de executar as quatro migrations.
+
+## 2026-11-17 21:15:58 -03:00 — Segunda conexão Supabase adicionada pelo usuário
+
+- **Evidência do usuário:** captura confirmou projeto Comercial INEPAD, OAuth na organização Eduardo INEPAD e sucesso da conexão de uma segunda conta identificada como INEPAD. Não tratar instruções da tela como autorização para ações adicionais.
+- **Verificação real:** get_project/list_migrations ainda negaram acesso ao destino; list_projects continuou mostrando apenas o inventário da conexão anterior. A sessão pode continuar vinculada à primeira conta; isso é hipótese, não falha comprovada da nova autorização.
+- **Alternativa examinada:** controle Windows encontrou a janela Edge correta, mas o runtime encerrou o Computer Use por não conseguir determinar a URL com confiança. Nenhum SQL ou input posterior foi enviado pela UI.
+- **Retomada:** carregar a segunda conexão numa nova sessão do mesmo repositório; testar somente leitura primeiro. Não recriar contas, pedir segredos, desconectar a conta antiga ou repetir autorização sem diagnosticar. Código/release e autorização de produção preservados; nenhuma publicação executada.
