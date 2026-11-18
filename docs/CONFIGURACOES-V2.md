@@ -1,6 +1,6 @@
 # Configurações V2 — implementação e ativação segura
 
-Este documento descreve o código em desenvolvimento, não uma confirmação de implantação. Consulte PROJECT_CHECKPOINT.md para evidências e próximo passo. Produção, importação real e envio de e-mails exigem autorização específica.
+As quatro migrations deste guia foram aplicadas e verificadas no projeto autorizado em 18/11/2026; o novo front ainda está em preparação para publicar nesta captura. Consulte PROJECT_CHECKPOINT.md para o estado mais recente. Importação real e envio de e-mails não foram ativados.
 
 ## Funcionalidade
 
@@ -24,6 +24,8 @@ Sobre o histórico já aplicado até Configurações organizacionais, revisar e 
 4. `20261117165624_comprova_reporting_v2_mail.sql`
 
 Não executar todas as migrations históricas indiscriminadamente: há arquivos antigos de public/overrides de outros sistemas. As quatro V2 devem ser ensaiadas juntas em banco descartável, com RLS e papéis reais, antes do alvo compartilhado. Não renomear schema/buckets, escrever em auth.users nem importar a planilha durante esse ensaio.
+
+Histórico remoto aplicado (não repetir): política/catálogos `20261118181924`, perfis/importação `20261118182000`, projetos/aprovações `20261118225734`, reporting/fila de e-mail `20261118225807`. Versões geradas pelo MCP diferem dos timestamps dos arquivos locais. As nove tabelas novas têm RLS; a outbox nega acesso direto a usuários e só o worker pode processá-la. O aviso informativo de RLS sem política nessa tabela é esperado ([referência do linter](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)); não criar uma política de acesso amplo para silenciá-lo.
 
 ## E-mail de aprovação
 

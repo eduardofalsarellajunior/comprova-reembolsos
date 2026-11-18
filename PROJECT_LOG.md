@@ -253,3 +253,10 @@ Histórico cronológico e cumulativo. Datas de referência em **America/Sao_Paul
 
 - A chamada de `comprova_project_members_and_approvals` retornou `status=expired`, exigindo nova confirmação da plataforma. Consulta posterior confirmou migration ausente e project_members/member_approvers inexistentes; não houve aplicação parcial detectada.
 - Migrations 1/2 não foram repetidas; quarta ainda não tentada. Próxima ação: renovar a confirmação da terceira e verificar antes de avançar. Nenhum push à main, deploy ou e-mail.
+
+## 2026-11-18 19:58:48 -03:00 — Quatro migrations V2 concluídas
+
+- **Etapas 3/4:** repetida somente a chamada expirada após verificar ausência; projetos/aprovações aplicada em `20261118225734`, com duas tabelas sob RLS, RPC autorizada/anon negado e vínculo não inventado. Reporting/fila aplicada em `20261118225807`.
+- **Pós-verificação:** nove novas tabelas com RLS; 1 empresa, 6 membros, 1 projeto e zero relatórios/despesas/comprovantes/perfis/outbox. Três buckets privados. SELECT direto na outbox negado a anon/authenticated; claim negado a ambos, permitido ao service_role com USAGE. Nenhum dado da planilha importado.
+- **Advisor:** aviso INFO de RLS sem política na outbox é o bloqueio direto intencional, corroborado pelos grants; não abrir acesso para silenciá-lo. Avisos de outros schemas ficaram fora do escopo.
+- **Release:** revisão independente aprovou os 44 arquivos contra main, todos no manifesto, sem segredo/artefato privado. Dependências/configuração de build não mudaram; desde QA d5eff94 só documentação mudou. Próxima ação: snapshot pós-migration, push fast-forward autorizado à main, observar deploy e domínio.
