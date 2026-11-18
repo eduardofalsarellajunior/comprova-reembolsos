@@ -68,3 +68,7 @@ Antes de qualquer ativação remota:
 ## Recuperação
 
 Antes de ativar no banco compartilhado, conferir backup, objetos existentes, grants e revisão de origem. Em problema no front, restaurar o deploy anterior autorizado e desligar o envio de e-mail; preservar as tabelas, dados e histórico novos. Não remover objetos compartilhados nem apagar filas para simular rollback. Pendências de envio ambíguo precisam ser reconciliadas com o provedor antes de qualquer tentativa manual.
+
+Voltar somente o front não restaura integralmente o comportamento anterior: as migrations substituem `submit_report` e `add_manual_report_expense`, acrescentam validações em triggers e revogam a escrita direta em `projects`. A recuperação funcional exige plano revisado de compatibilidade/correção aditiva, preservando dados e definições/ACL anteriores. Não prometer rollback completo apenas com troca de deploy.
+
+As migrations não preenchem vínculos de projeto ou aprovador por suposição. Após a ativação, o administrador precisa configurar esses vínculos para permitir novos relatórios e submissões. A carga de catálogos/políticas não substitui essa configuração nem importa a planilha de equipe.
