@@ -56,6 +56,8 @@ No OneDrive, use QA limpo fora da pasta sincronizada para build. Não copie .env
 
 ## Gate de ativação
 
+**Situação em 18/11/2026, 20:04 -03:00:** gate remoto concluído após autorização específica. Quatro migrations aplicadas/verificadas; front c76c044 em main, deploy dpl_HJ7ssGTPgpLeve8gxVbKL9mhDjg4 READY no domínio de produção. Smoke público/sem sessão passou 10/10. Não repetir migrations ou deploy por causa da lista histórica abaixo. Homologação autenticada e vínculos administrativos continuam pendentes; e-mail desativado e planilha não importada.
+
 Em 17/11/2026, a ponta de continuidade passou em build Webpack/TypeScript (21 páginas), smoke HTTP, lint e browser sintético desktop/celular. A suíte SQL/mocks registrada passou 13/13. A revisão estática das quatro migrations encontrou nove tabelas novas, todas com RLS; nenhuma DDL escreve fora de `comprova`. Os únicos acessos a outros namespaces são leituras do e-mail verificado em `auth.users` e da existência do comprovante em `storage.objects`. Os `drop` substituem somente cinco políticas RLS conhecidas. Isso é evidência local, não confirma o estado atual do Supabase compartilhado.
 
 Antes de qualquer ativação remota:

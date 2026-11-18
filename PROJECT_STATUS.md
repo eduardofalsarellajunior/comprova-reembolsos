@@ -1,13 +1,13 @@
 # INEPAD Reembolso — estado do projeto
 
-**Referência:** 17/11/2026 (America/Sao_Paulo). Leia o [checkpoint](PROJECT_CHECKPOINT.md) para retomar. Este documento distingue o que o GitHub contém do que ainda está no computador atual.
+**Referência:** 18/11/2026, 20:04 -03:00 (America/Sao_Paulo). Leia o [checkpoint](PROJECT_CHECKPOINT.md) para retomar. Os eventos de 17/11 abaixo permanecem como histórico.
 
 ## Produto e repositório
 
 - **Produto:** INEPAD Reembolso (antigo COMPROVA); relatórios, leitura de comprovantes e fluxo de aprovação por empresa. A nova marca está no ar; repositório, domínio de produção e nomes dos recursos existentes não mudaram.
 - **Repositório:** [eduardofalsarellajunior/comprova-reembolsos](https://github.com/eduardofalsarellajunior/comprova-reembolsos).
-- **Produção em 17/11:** [comprova-reembolsos.vercel.app](https://comprova-reembolsos.vercel.app/) serve a revisão `b36af53f175190ef362f9a7a570b656a093a07a1`, deploy Vercel `dpl_7VFpffhuCx8UDiVB3Jox5mCd6Xxn` READY. A revisão anterior foi `477aecf`, deploy `dpl_Egrw7WncJf6xZoapmVBo2Wm9wMUx`.
-- **GitHub:** `main = b36af53f175190ef362f9a7a570b656a093a07a1` confirmado após o push; o branch de Preview estava em `49e5dae` na consulta anterior. Não confunda o checkout local antigo com a nova ponta remota.
+- **Produção em 18/11:** [comprova-reembolsos.vercel.app](https://comprova-reembolsos.vercel.app/) serve a revisão `c76c04428ab511beaf7d6fd26ce8e91496206f55`, deploy Vercel `dpl_HJ7ssGTPgpLeve8gxVbKL9mhDjg4` READY/production, Next.js. A revisão anterior foi `b36af53`, deploy `dpl_7VFpffhuCx8UDiVB3Jox5mCd6Xxn`; trocar apenas o front não desfaz as regras V2 do banco.
+- **GitHub:** `main = c76c04428ab511beaf7d6fd26ce8e91496206f55` confirmado após push normal fast-forward. Continuidade recebeu o mesmo release e recebe separadamente a documentação pós-deploy. Não confunda o checkout local antigo com a ponta remota.
 - **Checkout local atual:** Local/Windows, clone separado `comprova/comprova-reembolsos`, branch `codex/continuity`, HEAD local `36c8364`. O publisher preserva esta árvore/índice e publica snapshots em outro clone; por isso as cópias publicadas continuam aparecendo modificadas aqui. O antigo checkout `codex/comprova-v1-preview` de outro computador está descrito apenas como histórico.
 - **Transferência entre contas:** usar a ponta remota de `codex/continuity` e o checkpoint mais recente. A antiga [branch codex/comprova-handoff](https://github.com/eduardofalsarellajunior/comprova-reembolsos/tree/codex/comprova-handoff), SHA `2ae7d6a`, contém somente documentação histórica; a produção continua separada em `main`.
 
@@ -52,7 +52,14 @@
 - [Roteiro de operação](docs/OPERACAO-REEMBOLSOS.md) explica o fluxo publicado. As notas de publicação mais recentes neste checkout foram acrescentadas após verificação do domínio.
 - Para saber o que já foi testado e o próximo passo, consulte [PROJECT_LOG.md](PROJECT_LOG.md) e [PROJECT_CHECKPOINT.md](PROJECT_CHECKPOINT.md). Em caso de dúvida sobre produção, consulte GitHub, Vercel e Supabase separadamente; não presuma que um status vale para os três.
 
-## Desenvolvimento em andamento e continuidade — 17/11/2026
+## Configurações V2 — situação atual em 18/11/2026
+
+- Implementação e quatro migrations publicadas e verificadas, exclusivamente no alvo autorizado. Nove tabelas novas com RLS; dados anteriores e buckets privados preservados. Versões remotas e ACL estão no checkpoint; não reaplicar os SQL.
+- Smoke ao vivo 10/10: raiz redireciona, quatro páginas e PNG respondem 200, quatro APIs recusam chamadas sem credenciais com 401. Vercel confirmou domínio/SHA/READY; nenhum error/fatal ou cluster encontrado na janela de dez minutos. Não há drains externos configurados. Evidências locais anteriores de build/lint/browser/SQL continuam válidas; não houve homologação com contas ou OCR reais.
+- **Pendência operacional:** administrador precisa vincular solicitantes, inclusive ele próprio, a projetos ativos e definir aprovadores ativos elegíveis em Membros de equipe. Sem projeto, novos relatórios/vínculos de despesas ficam bloqueados; sem aprovador, o envio é bloqueado. Migrations não inventam essas atribuições.
+- E-mail continua desativado, sem cron ou envios. Planilha privada não importada; seis membros e um projeto existentes preservados. Configuração/importação e homologação autenticada são etapas distintas da publicação concluída.
+
+## Histórico de desenvolvimento e continuidade — 17 e 18/11/2026
 
 - A tarefa atual é finalizar Configurações: dados pessoais/bancários administrados, três tipos de usuário, projetos e vínculos de pessoas/aprovadores, moeda BRL, campos obrigatórios, catálogos e políticas dos anexos e e-mail de aprovação. A implementação está **validada localmente com dados simulados, mas não implantada nem homologada com serviços reais**.
 - A interface de equipe e Meus dados foi implementada e os contratos de componentes foram corrigidos; menu tem 14 seções. Em clone limpo, build Webpack/TypeScript, smoke HTTP, lint e browser sintético desktop/celular passaram com Auth/REST/RPC simulados e bloqueio de rede externa. Isso não homologa contas, banco ou e-mail reais e não deve ser confundido com o redesign já publicado.
