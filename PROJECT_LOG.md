@@ -232,3 +232,24 @@ Histórico cronológico e cumulativo. Datas de referência em **America/Sao_Paul
 - **Pré-validação somente leitura:** histórico até Configurações organizacionais; nove tabelas V2 ausentes, cinco políticas conhecidas presentes, seis helpers/assinaturas conferidos, RLS em todas as tabelas existentes de comprova, três buckets exclusivos privados. Contagens exatas: 1 empresa, 6 membros, 1 projeto, 0 relatórios/despesas/comprovantes; uma empresa elegível para seed.
 - **Recuperação:** preservadas localmente em arquivo ignorado definições/ACL de duas RPCs, cinco políticas e 36 grants; sem dados pessoais ou credenciais. O arquivo é metadado de referência, não backup de dados ou rollback executável. Guia corrigido: troca de front não restaura sozinha as regras antigas do banco.
 - **Revisão independente:** risco operacional confirmado de novos relatórios bloqueados até admin configurar projeto/aprovadores; migrations não inventam vínculos. Nenhuma migration ou deploy executado. Próxima ação: pedir autorização específica para os quatro SQL remotos, preservando a autorização de deploy já concedida.
+
+## 2026-11-18 15:08:43 -03:00 — Migrations e publicação explicitamente autorizadas
+
+- **Autorização:** usuário confirmou prosseguir após a pergunta específica sobre as quatro migrations V2 exclusivamente em comprova, seguidas do deploy já autorizado. Importação da planilha e ativação de e-mail permanecem fora do escopo.
+- **Rechecagem:** main `b36af53`, continuidade `2baa487`, nenhum avanço concorrente nem diferença local contra snapshot recebido. Histórico do banco ainda sem V2; hashes dos quatro arquivos revisados preservados. Advisor security retornou sete avisos preexistentes em outros recursos e nenhum em comprova; não alterar outros sistemas.
+- **E-mail/recuperação:** variável COMPROVA_EMAIL_SEND_ENABLED ausente em produção; envio fica desligado. Metadados/ACL anteriores preservados localmente; backup de dados da plataforma não foi confirmado pela ferramenta disponível e não será apresentado como validado. Alterações aprovadas preservam dados existentes e seeds não sobrescrevem cadastros. Usar correção aditiva/compatibilidade se a recuperação funcional for necessária.
+- **Próxima ação:** aplicar/verificar cada migration via MCP da conexão INEPAD e registrar versões efetivamente retornadas; depois publicar o release em clone separado, sem force ou alteração da árvore de origem.
+
+## 2026-11-18 15:19:24 -03:00 — Migration V2 1/4 confirmada
+
+- `comprova_policy_catalog_v2` aplicada por MCP no alvo autorizado, histórico `20261118181924`. Leitura posterior confirmou cinco tabelas com RLS, três pagamentos, 12 categorias, dez trechos e uma política padrão de despesas/quilometragem.
+- Aplicação não foi repetida. Próxima etapa: perfis/importação; demais três SQL ainda pendentes. Nenhum dado de planilha importado, e-mail ou deploy.
+
+## 2026-11-18 15:20:00 -03:00 — Migration V2 2/4 confirmada
+
+- `comprova_member_profiles_import` aplicada, histórico `20261118182000`. Verificação: RLS na tabela privada, zero perfis importados, seis membros mantidos, INSERT direto para authenticated negado, RPC de edição acessível a authenticated e negada a anon.
+
+## 2026-11-18 19:54:08 -03:00 — Confirmação da migration 3 expirou
+
+- A chamada de `comprova_project_members_and_approvals` retornou `status=expired`, exigindo nova confirmação da plataforma. Consulta posterior confirmou migration ausente e project_members/member_approvers inexistentes; não houve aplicação parcial detectada.
+- Migrations 1/2 não foram repetidas; quarta ainda não tentada. Próxima ação: renovar a confirmação da terceira e verificar antes de avançar. Nenhum push à main, deploy ou e-mail.
