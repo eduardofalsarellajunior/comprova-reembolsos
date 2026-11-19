@@ -20,6 +20,9 @@
 .table td:nth-child(2),.table td:last-child { width:1%; white-space:nowrap; }
 .table td small { display:block; color:var(--project-muted); margin-top:3px; }
 .table tbody tr:last-child td { border-bottom:0; }
+.actions { display:flex; gap:6px; justify-content:flex-end; }
+.danger { border-color:#d9aaa6 !important; color:#a02b23 !important; background:#fff7f6 !important; }
+.danger:hover:not(:disabled) { border-color:#a02b23 !important; background:#fff0ee !important; }
 .dialog { width:min(660px,calc(100% - 20px)); max-height:calc(100dvh - 20px); margin:auto; padding:22px; border:1px solid var(--project-line); border-radius:14px; color:var(--project-dark); background:#fff; box-shadow:0 20px 70px #0a264640; overflow:auto; }
 .dialog::backdrop { background:#132c487b; }
 .dialog h2 { font-size:20px; font-weight:750; }
@@ -57,4 +60,5 @@
   .dialog { padding:14px; }
   .table th,.table td { padding:8px; }
   .table td:last-child button { padding-inline:5px; }
+  .actions { flex-direction:column; }
 }

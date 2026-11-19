@@ -147,10 +147,27 @@ export function ProjectSettings({ companyId, members, onChanged }: { companyId: 
   const [activeTab, setActiveTab] = useState(true);
   const [search, setSearch] = useState("");
   const [notice, setNotice] = useState("");
+  const [actionError, setActionError] = useState("");
+  const [deletingId, setDeletingId] = useState("");
   const [editing, setEditing] = useState<ProjectDraft | null>(null);
   const projectCount = new Map<string, number>();
   for (const item of links) projectCount.set(item.project_id, (projectCount.get(item.project_id) || 0) + 1);
   const visible = projects.filter((project) => project.active === activeTab && fold(project.name + " " + project.code).includes(fold(search)));
+
+  async function remove(project: Project) {
+    if (deletingId || loading || error) return;
+    const confirmed = window.confirm(`Excluir o projeto “${project.name}”?\n\nEsta ação é irreversível. Projetos com relatórios devem ser inativados e não podem ser excluídos.`);
+    if (!confirmed) return;
+    setDeletingId(project.id); setNotice(""); setActionError("");
+    try {
+      const { error: problem } = await supabase.rpc("delete_managed_project", { p_company_id: companyId, p_project_id: project.id });
+      if (problem) throw problem;
+      setNotice("Projeto excluído."); reload(); onChanged?.();
+    } catch (problem) {
+      setActionError(problem && typeof problem === "object" && "message" in problem ? String(problem.message) : "Não foi possível excluir o projeto.");
+    } finally { setDeletingId(""); }
+  }
+
   return <section className={`reportCard ${styles.panel}`}>
     <div className={styles.heading}>
       <p className="muted">Cadastre projetos e vincule quem pode usá-los em novos relatórios.</p>
@@ -164,19 +181,25 @@ export function ProjectSettings({ companyId, members, onChanged }: { companyId: 
     <label className={styles.search}>Pesquisar projetos<input type="search" placeholder="Nome ou código do projeto" value={search} onChange={(event) => setSearch(event.target.value)} /></label>
     {loading && <p className="muted" role="status">Carregando projetos…</p>}
     {error && <p role="alert" className={styles.error}>{error}</p>}
+    {actionError && <p role="alert" className={styles.error}>{actionError}</p>}
     {notice && <p role="status" className={styles.notice}>{notice}</p>}
     {!!visible.length && <div className={styles.tableScroll}>
       <table className={styles.table}><thead><tr><th>Nome</th><th>Membros</th><th>Ações</th></tr></thead>
         <tbody>{visible.map((project) => <tr key={project.id}><td>
           <strong>{project.name}</strong>{project.code && <small>Código: {project.code}</small>}
         </td><td>{projectCount.get(project.id) || 0}</td>
-          <td><button className="settingsButton" type="button" disabled={!!error} onClick={() => setEditing(project)} aria-label={`Editar ${project.name}`}>Editar</button></td></tr>)}</tbody>
+          <td><div className={styles.actions}>
+            <button className="settingsButton" type="button" disabled={!!error || !!deletingId} onClick={() => { setActionError(""); setNotice(""); setEditing(project); }} aria-label={`Editar ${project.name}`}>Editar</button>
+            <button className={`${styles.danger} settingsButton`} type="button" disabled={!!error || !!deletingId} onClick={() => void remove(project)} aria-label={`Excluir ${project.name}`}>
+              {deletingId === project.id ? "Excluindo…" : "Excluir"}
+            </button>
+          </div></td></tr>)}</tbody>
       </table>
     </div>}
     {!loading && !error && !visible.length && <p className="muted">{search ? "Nenhum projeto encontrado." : activeTab ? "Nenhum projeto ativo." : "Nenhum projeto inativo."}</p>}
     {editing && <ProjectEditor companyId={companyId} initial={editing} members={members} selected={links.filter((item) => item.project_id === editing.id).map((item) => item.member_id)}
       close={() => setEditing(null)} finish={(active) => {
-        setEditing(null); setActiveTab(active); setSearch(""); reload(); setNotice("Projeto salvo."); onChanged?.();
+        setEditing(null); setActiveTab(active); setSearch(""); reload(); setActionError(""); setNotice("Projeto salvo."); onChanged?.();
       }} />}
   </section>;
 }

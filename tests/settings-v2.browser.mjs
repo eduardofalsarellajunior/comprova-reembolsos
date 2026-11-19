@@ -121,6 +121,16 @@ function simulateRpc(name, args) {
     rest.project_members = [...rest.project_members.filter((link) => link.project_id !== id), ...args.p_member_ids.map((member_id) => ({ company_id: companyId, project_id: id, member_id }))];
     return id;
   }
+  if (name === "delete_managed_project") {
+    assert.equal(args.p_company_id, companyId);
+    if (rest.reports.some((report) => report.project_id === args.p_project_id)) {
+      throw new Error("Projeto com relatórios não pode ser excluído. Inative o projeto para preservar o histórico.");
+    }
+    assert.ok(rest.projects.some((project) => project.id === args.p_project_id), "O projeto excluído deve existir no mock.");
+    rest.projects = rest.projects.filter((project) => project.id !== args.p_project_id);
+    rest.project_members = rest.project_members.filter((link) => link.project_id !== args.p_project_id);
+    return null;
+  }
   // Persist the two administrative link editors independently of React state.
   // This is only the synthetic contract, not a replacement for SQL/RLS tests.
   if (name === "set_member_projects") {
@@ -211,7 +221,7 @@ const mock = createServer(async (req, res) => {
       res.end(JSON.stringify(req.headers.accept?.includes("pgrst.object") ? rows[0] || null : rows)); return;
     }
     res.writeHead(404).end(JSON.stringify({ message: "Rota não simulada." }));
-  } catch { res.writeHead(500).end(JSON.stringify({ message: "Falha no mock local." })); }
+  } catch (error) { res.writeHead(500).end(JSON.stringify({ message: error instanceof Error ? error.message : "Falha no mock local." })); }
 });
 const bind = async (server, port) => { server.listen(port, "127.0.0.1"); await once(server, "listening"); };
 const portReservation = createServer();
@@ -488,6 +498,21 @@ try {
   await clickText("dialog button", "Salvar projeto");
   await waitFor(() => evaluate("!document.querySelector('dialog[open]') && document.body.textContent.includes('Projeto novo fictício')"), "projeto criado no mock e wizard fechado");
   assert.equal(rpcCalls.find((call) => call.name === "save_managed_project").args.p_member_ids.length, 1);
+  await evaluate("window.__qaConfirmations = []; window.confirm = (message) => { window.__qaConfirmations.push(message); return false; }");
+  await click('button[aria-label="Excluir Projeto novo fictício"]');
+  assert.equal(rpcCalls.some((call) => call.name === "delete_managed_project"), false, "cancelar não chama a exclusão");
+  assert.ok((await evaluate("window.__qaConfirmations[0]")).includes("ação é irreversível"));
+  await evaluate("window.confirm = () => true");
+  await click('button[aria-label="Excluir Projeto novo fictício"]');
+  await waitFor(() => bodyIncludes("Projeto excluído."), "confirmação de exclusão do projeto sem relatório");
+  await waitFor(() => evaluate("!document.body.textContent.includes('Projeto novo fictício')"), "projeto excluído sai da lista");
+  assert.equal(rest.projects.some((project) => project.name === "Projeto novo fictício"), false);
+  assert.equal(rest.project_members.some((link) => link.project_id === "cccccccc-cccc-4ccc-8ccc-cccccccccccc"), false);
+  rest.reports.push({ id: "abababab-abab-4bab-8bab-abababababab", company_id: companyId, project_id: projectId });
+  await click('button[aria-label="Excluir Projeto fictício ativo"]');
+  await waitFor(() => bodyIncludes("Inative o projeto para preservar o histórico."), "bloqueio visual de exclusão com relatório");
+  assert.ok(rest.projects.some((project) => project.id === projectId), "projeto com relatório permanece");
+  rest.reports = rest.reports.filter((report) => report.id !== "abababab-abab-4bab-8bab-abababababab");
   await evaluate("Array.from(document.querySelectorAll('button')).find((node) => node.textContent.includes('Projetos inativos')).click()");
   await waitFor(() => bodyIncludes("Projeto fictício inativo"), "aba projetos inativos");
   assert.equal(await bodyIncludes("Projeto fictício ativo"), false);

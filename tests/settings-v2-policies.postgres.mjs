@@ -14,6 +14,7 @@ const migrations = [
 const v2Migrations = [
   "20261117164803_comprova_policy_catalog_v2.sql", "20261117164815_comprova_member_profiles_import.sql",
   "20261117164832_comprova_project_members_and_approvals.sql", "20261117165624_comprova_reporting_v2_mail.sql",
+  "20261119183738_comprova_safe_project_delete.sql",
 ];
 
 test("Configurações V2: catálogos, projetos, isolamento, limites reais e snapshot de aprovação", async () => {
@@ -85,6 +86,11 @@ test("Configurações V2: catálogos, projetos, isolamento, limites reais e snap
     await assert.rejects(q("select comprova.save_mileage_policy_config($1,null,'QA duplicada',false,2,'{}',null,null,$2::uuid[])", company, [employeeMember]), /outra política/);
     const project = await val("select comprova.save_managed_project($1,null,'Projeto QA','QA','Descrição fictícia',true,$2::uuid[])", company, [employeeMember,secondMember]);
     await assert.rejects(q("select comprova.save_managed_project($1,null,'projeto qa','','',true,'{}')", company), /este nome/);
+    const disposableProject = await val("select comprova.save_managed_project($1,null,'Projeto descartável QA','','',true,$2::uuid[])", company, [employeeMember]);
+    assert.equal(await val("select count(*)::int from comprova.project_members where project_id=$1", disposableProject), 1);
+    await q("select comprova.delete_managed_project($1,$2)", company, disposableProject);
+    assert.equal(await val("select count(*)::int from comprova.projects where id=$1", disposableProject), 0, "admin exclui projeto sem relatório");
+    assert.equal(await val("select count(*)::int from comprova.project_members where project_id=$1", disposableProject), 0, "exclusão limpa somente vínculos do cadastro");
     await q("select comprova.set_member_approvers($1,$2,$3::uuid[])", company, employeeMember, [reviewerMember]);
     await assert.rejects(q("select comprova.set_member_approvers($1,$2,$3::uuid[])", company, employeeMember, [employeeMember]), /vínculos/);
     await assert.rejects(q("select comprova.set_member_approvers($1,$2,$3::uuid[])", company, reviewerMember, [secondMember]), /aprovadores ativos/);
@@ -101,6 +107,7 @@ test("Configurações V2: catálogos, projetos, isolamento, limites reais e snap
     assert.equal(await val("select count(*)::int from comprova.mileage_policies where id=$1", specific), 1);
     assert.equal(await val("select count(*)::int from comprova.expense_policy_configs where id=$1", expenseSpecific),0);
     await assert.rejects(q("select comprova.save_managed_project($1,null,'Proibido','','',true,'{}')", company), /administradores/);
+    await assert.rejects(q("select comprova.delete_managed_project($1,$2)", company, project), /administradores/);
     await assert.rejects(q("select comprova.save_expense_policy_config($1,$2,'INEPAD',true,null,null,'[]','{}')", company,policy), /Permissão insuficiente/);
     await assert.rejects(q("insert into comprova.reports(owner_id,company_id,name,currency,project_id,payment_method_id) values($1,$2,'Sem vínculo','BRL',$3,$4)",employee,company,legacyProject,payment), /vinculado/);
     const makeReport = async (amounts, dateOffset=0) => {
@@ -164,6 +171,10 @@ test("Configurações V2: catálogos, projetos, isolamento, limites reais e snap
     await q("select comprova.save_mileage_policy_config($1,$2,'QA específica',false,2,'{}',null,null,$3::uuid[])",company,specific,[employeeMember]);
     await q("select comprova.save_managed_project($1,$2,'Projeto QA','QA','',false,$3::uuid[])",company,project,[employeeMember,secondMember]);
     assert.equal(await val("select count(*)::int from comprova.project_members where project_id=$1",project),2, "inativar não remove vínculos");
+    await assert.rejects(q("select comprova.delete_managed_project($1,$2)",company,project), /relatórios não pode ser excluído/, "relatório preserva o projeto e orienta inativação");
+    assert.equal(await val("select count(*)::int from comprova.projects where id=$1",project),1);
+    assert.equal(await val("select has_function_privilege('authenticated','comprova.delete_managed_project(uuid,uuid)','execute')"),true);
+    assert.equal(await val("select has_function_privilege('anon','comprova.delete_managed_project(uuid,uuid)','execute')"),false);
     await db.exec("reset role");
     assert.equal(await val("select count(*)::int from auth.users"),5);
     assert.equal(await val("select count(*)::int from storage.objects where bucket_id='untouched'"),1);

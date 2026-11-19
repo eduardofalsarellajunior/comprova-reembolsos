@@ -1,6 +1,6 @@
 # INEPAD Reembolso — estado do projeto
 
-**Referência:** alteração de Meus dados em 19/11/2026, 14:35 -03:00 (America/Sao_Paulo). Leia o [checkpoint](PROJECT_CHECKPOINT.md) para retomar. Evidências de produção de 18/11 e eventos anteriores permanecem identificados como histórico.
+**Referência:** encerramento técnico de Configurações em 19/11/2026, 16:00 -03:00 (America/Sao_Paulo). Leia o [checkpoint](PROJECT_CHECKPOINT.md) para retomar. Banco/catálogo já foram atualizados; o botão novo ainda aguarda release do front.
 
 ## Produto e repositório
 
@@ -61,8 +61,9 @@
 
 ## Retomada em 19/11/2026
 
-- **Novo pedido implementado/validado localmente, ainda não publicado em produção:** autoedição dos dados pessoais/bancários e departamento/cargo do próprio membro ativo, inclusive Normal/Intermediário. Tipo de usuário continua administrativo; usuário confirmou manter e-mail de login inalterado. Substitui a decisão anterior de Meus dados somente leitura, sem abrir edição de outras pessoas.
-- Nova migration aditiva `20261119172222_comprova_self_profile_edit.sql`, gerada por CLI, implementa RPC self-only sem parâmetros de tipo ou usuário-alvo. Não altera migrations aplicadas nem concede UPDATE direto dos perfis. Suíte combinada 20/20, build Webpack/TypeScript, lint integral, smoke HTTP e browser dos três papéis passaram em QA fictício. Autorizada e aplicada em 19/11, versão remota 20261119174653; ACL/RLS e invariantes verificados. Front/release e importação do novo XLS ainda em preparação às 14:51 -03:00, conforme checkpoint.
+- **Autoedição publicada:** dados pessoais/bancários e departamento/cargo do próprio membro ativo, inclusive Normal/Intermediário. Tipo de usuário continua administrativo e o e-mail de login permanece inalterado. Migration remota `20261119174653`, front READY no SHA `698d510`.
+- Nova migration aditiva `20261119172222_comprova_self_profile_edit.sql`, gerada por CLI, implementa RPC self-only sem parâmetros de tipo ou usuário-alvo. Não concede UPDATE direto. Usuários do novo XLS foram importados (20 linhas; 19 novos, 1 existente).
+- **Projetos concluídos no banco:** migration local `20261119183738_comprova_safe_project_delete.sql`, versão remota `20261119185627`. Catálogo tem 30 nomes únicos ativos; sete repetições dos anexos foram ignoradas e `teste` foi excluído após confirmar zero referências. RPC bloqueia exclusão de projeto com relatório e mantém DELETE direto revogado. UI e testes estão prontos em continuidade, mas ainda precisam de nova autorização para main/deploy.
 
 - GitHub confirmado em continuidade c5fdb41 / main c76c044. Não se repetiu publicação, migration ou configuração do banco; a situação de produção acima é o registro anterior, não nova homologação autenticada.
 - Microetapa concluída: teste browser ampliado dos vínculos de projetos e aprovadores, com persistência sintética e recarga completa. Passaram os dois sentidos da relação, ordem, papéis elegíveis, ausência de autoaprovação e preservação dos vínculos alheios. O browser também preservou as regressões anteriores de centavos/assistido; zero rede externa. Build atual 21/21, sintaxe e lint focado aprovados. Nenhuma regra da aplicação ou migration alterada.

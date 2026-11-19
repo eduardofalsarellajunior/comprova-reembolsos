@@ -1,8 +1,18 @@
 # INEPAD Reembolso — checkpoint de retomada
 
-## Checkpoint atual — migration de autoedição aplicada; release e importação em preparação
+## Checkpoint atual — Configurações concluídas no código e catálogo remoto; release pendente
 
-- **Atualizado:** 2026-11-19 14:51 -03:00, America/Sao_Paulo.
+- **Atualizado:** 2026-11-19 16:00 -03:00, America/Sao_Paulo.
+- **Entrega concluída:** exclusão administrativa segura implementada no banco e na interface. A UI confirma a ação irreversível, chama somente a RPC e mostra a orientação de inativar quando há relatório. O banco exige Administrador, empresa correta e `auth.uid()`, usa `SECURITY DEFINER` com `search_path=''`, não concede DELETE direto e nunca apaga relatórios em cascade.
+- **Dados remotos:** migration `comprova_safe_project_delete` aplicada como versão `20261119185627`. `teste` foi excluído depois de nova confirmação de zero relatórios/zero membros; a remoção direta desse registro não é reversível, mas ele pode ser recriado se necessário. Foram cadastrados 30 projetos únicos, todos ativos, com código/descrição vazios e sem vínculos de pessoas inferidos. Sete repetições dos anexos foram ignoradas.
+- **Validação remota:** conjunto final 30/30, zero duplicados normalizados, zero `teste`, zero vínculos e zero relatórios com projeto. RLS de `projects` ativo; authenticated tem execute na RPC e não DELETE de tabela; anon não tem execute. Auth 15, Storage 34.540 objetos e 42 tabelas public permaneceram com as mesmas contagens pré/pós-operação. Advisor não atribuiu novo achado à função; achados antigos em outros schemas e a outbox fechada permanecem fora do escopo.
+- **Testes locais:** SQL de Configurações aprovado; suíte combinada teve 20 aprovações e um smoke bloqueado pelo sandbox, que passou isoladamente fora dele, total funcional 21/21. Browser sintético aprovou cancelar, excluir, recarregar e bloquear projeto com histórico; build Webpack/TypeScript 21 páginas e lint integral passaram. Dados do browser são fictícios e sem rede externa.
+- **Usuários concluídos:** importação privada anterior permanece em 20 linhas, 19 membros novos, 1 existente, 3 novos administradores, 20 perfis, 17 departamentos e 17 cargos. Auth, senhas, projetos e aprovadores não foram inferidos pela importação.
+- **Produção atual:** main/continuidade de release anterior `698d51040499c8f63362c82f832c79f013475057`; Vercel `dpl_2Na3ymUJ5NBQdxEWQMtENSFjv88q` READY. O banco e o catálogo novos já existem, mas o botão Excluir ainda não aparece no site até novo push à main/deploy.
+- **Próxima ação exata:** publicar código e documentação somente em `codex/continuity` pelo publisher autorizado e confirmar SHA/main preservada. Solicitar autorização específica para fast-forward de main e deploy; depois fazer smoke de produção. Não repetir migration nem carga.
+- **Limites:** nenhum vínculo de membros foi inventado; projetos ficam disponíveis para configuração administrativa. Não tocar Auth/public/Storage/outros schemas nem alterar os avisos antigos do banco compartilhado.
+
+## Checkpoint anterior — migration de autoedição aplicada; release e importação em preparação
 - **Responsável/objetivo:** Codex local; ativar a autoedição validada e cadastrar todos os membros do novo XLS privado fornecido pelo administrador.
 - **Autorização:** o usuário aprovou expressamente a migration nova e a publicação do front. Também solicitou a importação do novo documento de equipe; não é autorização para alterar Auth, senhas, e-mails, outros sistemas ou inferir vínculos de projetos/aprovadores.
 - **Base:** mesmo clone Local/Windows Temp, índice preservado. Remotos confirmados continuidade `c80f6d827e89816a9090b83cdcba68486d01b8fe` e main `c76c04428ab511beaf7d6fd26ce8e91496206f55`. Produção ainda no deploy anterior READY.

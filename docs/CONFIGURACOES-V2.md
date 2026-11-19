@@ -1,6 +1,6 @@
 # Configurações V2 — implementação e ativação segura
 
-As quatro migrations V2 e o front foram publicados/verificados em 18/11/2026, conforme registro de ativação abaixo. A autoedição de Meus dados solicitada em 19/11 está implementada e validada localmente, mas ainda não ativada em produção. Consulte PROJECT_CHECKPOINT.md para o estado mais recente. Importação real e envio de e-mails não foram ativados.
+As quatro migrations V2 e o front foram publicados/verificados em 18/11/2026. A autoedição de Meus dados foi ativada em 19/11, seguida da importação administrativa da equipe. A exclusão segura e o catálogo de 30 projetos já estão no banco; o novo botão ainda aguarda release do front. Consulte PROJECT_CHECKPOINT.md para o estado mais recente. O envio de e-mails permanece desativado.
 
 ## Funcionalidade
 
@@ -8,7 +8,7 @@ As quatro migrations V2 e o front foram publicados/verificados em 18/11/2026, co
 - Na alteração de 19/11 validada localmente, Meus dados permite editar o próprio nome, CPF, nascimento, telefone, cargo/departamento e banco/agência/conta/Pix. Comuns não alteram tipo; gestão de terceiros permanece administrativa. O e-mail de login fica inalterado por escolha explícita do usuário. Segurança, senha e preferências da conta permanecem disponíveis. A versão de 18/11 tinha Meus dados somente leitura até esta nova ativação.
 - Novas contas têm tipo Normal, Intermediário ou Administrador. O papel técnico financeiro legado permanece compatível para preservar o histórico, mas não pode ser atribuído a novos cadastros.
 - Equipe: edição administrativa, departamento/cargo, projetos e responsáveis por aprovação. A associação de login depende de e-mail confirmado; importar não cria usuários Auth nem redefine senha.
-- Projetos: edição, membros e resumo; listas ativas/inativas. Desativar mantém histórico e vínculos existentes; novo relatório exige projeto ativo autorizado.
+- Projetos: criação, edição, exclusão segura, membros e resumo; listas ativas/inativas. Excluir exige Administrador e só é permitido sem relatórios; quando há histórico, o sistema orienta inativar. Novo relatório exige projeto ativo autorizado.
 - Novas operações em Real, sem seletor de moeda nem conversão de históricos. Projeto e pagamento pertencem ao contexto do relatório e são herdados pelas despesas nele vinculadas.
 - Valor positivo com no máximo dois decimais, descrição, categoria, projeto e pagamento são validados no servidor/banco. Extração OCR incompleta pode ficar avulsa para revisão, mas não ser vinculada ou submetida.
 - Catálogos e políticas seguem as referências fornecidas. Limites legados ativos continuam visíveis em leitura e válidos; não são apagados silenciosamente quando a política V2 está sem limite.
@@ -27,13 +27,19 @@ Não executar todas as migrations históricas indiscriminadamente: há arquivos 
 
 Histórico remoto aplicado (não repetir): política/catálogos `20261118181924`, perfis/importação `20261118182000`, projetos/aprovações `20261118225734`, reporting/fila de e-mail `20261118225807`. Versões geradas pelo MCP diferem dos timestamps dos arquivos locais. As nove tabelas novas têm RLS; a outbox nega acesso direto a usuários e só o worker pode processá-la. O aviso informativo de RLS sem política nessa tabela é esperado ([referência do linter](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)); não criar uma política de acesso amplo para silenciá-lo.
 
-## Autoedição adicional — 19/11, ativação pendente
+## Autoedição adicional — 19/11, ativada
 
-Aplicar, somente após autorização específica e pré-verificação do alvo, **apenas** `20261119172222_comprova_self_profile_edit.sql`, seguido do front compatível. As quatro migrations acima já foram aplicadas e não devem ser repetidas.
+Aplicada no destino como versão `20261119174653`, seguida do front compatível. Não repetir `20261119172222_comprova_self_profile_edit.sql` nem as quatro migrations V2 anteriores.
 
 A nova função `comprova.update_my_company_member_profile` deriva o membro ativo de auth.uid/empresa, sem aceitar usuário/membro-alvo ou tipo. Permite nove campos pessoais/bancários e departamento/cargo próprios, mantendo tipos, e-mail, identidade Auth, status, projetos e aprovadores. Não altera RLS/grants de tabela nem abre UPDATE direto. A validação e a autorização são feitas no banco, não só no formulário.
 
 UI tem salvar, cancelar e recarregar. Erro mantém o rascunho; falha de reconsulta após uma gravação confirmada informa que foi salvo e pede recarga. Se a função ainda não estiver no banco, falha explicitamente, sem usar metadata Auth como alternativa insegura.
+
+## Exclusão segura e catálogo de projetos — 19/11
+
+`20261119183738_comprova_safe_project_delete.sql` acrescenta somente a função administrativa `comprova.delete_managed_project`. A função deriva a autorização de `auth.uid()`, qualifica todas as relações e bloqueia a exclusão quando existe qualquer relatório vinculado. A interface pede confirmação irreversível e recomenda inativar o projeto com histórico. Vínculos de membros do cadastro são removidos pelo `ON DELETE CASCADE` já existente; relatórios nunca são apagados em cascata.
+
+O catálogo solicitado contém 30 nomes únicos, ativos e inicialmente sem membros vinculados. Sete ocorrências duplicadas dos anexos foram ignoradas. A carga e a remoção explícita de `teste` foram concluídas e validadas por contagem/conjunto de nomes. A migration remota é `20261119185627`; não repetir a carga nem a exclusão. Nenhum vínculo de pessoa foi criado por suposição.
 
 QA aprovado: suíte combinada 20/20, build/TypeScript, lint integral, smoke HTTP e browser Admin/Normal/Intermediário com dados fictícios e zero rede externa. PGlite não substitui concorrência/ACL herdadas do alvo nem homologação real; CPF mantém validação de formato.
 
