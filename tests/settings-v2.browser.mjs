@@ -32,6 +32,8 @@ const employeeId = "33333333-3333-4333-8333-333333333333";
 const approverId = "44444444-4444-4444-8444-444444444444";
 const departmentId = "55555555-5555-4555-8555-555555555555";
 const jobId = "66666666-6666-4666-8666-666666666666";
+const alternateDepartmentId = "56565656-5656-4565-8565-565656565656";
+const alternateJobId = "67676767-6767-4676-8676-676767676767";
 const projectId = "77777777-7777-4777-8777-777777777777";
 const inactiveProjectId = "88888888-8888-4888-8888-888888888888";
 const categoryId = "99999999-9999-4999-8999-999999999999";
@@ -49,8 +51,8 @@ const rest = {
     { ...baseMember, id: approverId, user_id: approverId, email: "intermediario@example.test", role: "approver" },
   ],
   company_member_profiles: [personal(userId, "Pessoa fictícia Admin"), personal(employeeId, "Pessoa fictícia Normal"), personal(approverId, "Pessoa fictícia Intermediária")],
-  departments: [{ id: departmentId, company_id: companyId, name: "Departamento fictício" }],
-  job_titles: [{ id: jobId, company_id: companyId, department_id: departmentId, name: "Cargo fictício" }],
+  departments: [{ id: departmentId, company_id: companyId, name: "Departamento fictício" }, { id: alternateDepartmentId, company_id: companyId, name: "Departamento alternativo QA" }],
+  job_titles: [{ id: jobId, company_id: companyId, department_id: departmentId, name: "Cargo fictício" }, { id: alternateJobId, company_id: companyId, department_id: alternateDepartmentId, name: "Cargo alternativo QA" }],
   projects: [{ id: projectId, company_id: companyId, name: "Projeto fictício ativo", code: "QA", description: "Somente teste", active: true }, { id: inactiveProjectId, company_id: companyId, name: "Projeto fictício inativo", code: "OLD", description: "Histórico sintético", active: false }],
   project_members: [{ company_id: companyId, project_id: projectId, member_id: employeeId }],
   member_approvers: [{ company_id: companyId, requester_member_id: employeeId, approver_member_id: approverId, position: 1 }],
@@ -70,7 +72,14 @@ const auth = { access_token: token, refresh_token: "offline-fixture-refresh", ex
 const routesSeen = new Set();
 const rpcCalls = [];
 const expenseWrites = [];
+const selfProfileWrites = [];
 let failExpenseWrite = false;
+let failSelfProfileWrite = false;
+const personalFields = [
+  ["full_name", "Nome completo"], ["cpf", "CPF"], ["birth_date", "Data de nascimento"],
+  ["phone", "Telefone"], ["job_label", "Cargo informado"], ["bank", "Banco"],
+  ["bank_branch", "Agência"], ["bank_account", "Conta"], ["pix_key", "Chave Pix"],
+];
 async function readJson(request) { const chunks = []; for await (const chunk of request) chunks.push(chunk); return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}"); }
 function filteredRows(table, params) {
   return (rest[table] || []).filter((row) => [...params].every(([key, condition]) => {
@@ -84,6 +93,22 @@ function filteredRows(table, params) {
 function simulateRpc(name, args) {
   rpcCalls.push({ name, args });
   if (name === "is_company_admin") return rest.company_members[0].role === "admin";
+  if (name === "update_my_company_member_profile") {
+    assert.deepEqual(Object.keys(args).sort(), ["p_company_id", "p_department_id", "p_job_title_id", "p_profile"]);
+    assert.equal(args.p_company_id, companyId);
+    assert.deepEqual(Object.keys(args.p_profile).sort(), personalFields.map(([key]) => key).sort());
+    // The actor comes from the authenticated fixture, never from a target/member
+    // argument. SQL authorization and role escalation are tested separately.
+    const member = rest.company_members.find((row) => row.company_id === args.p_company_id && row.user_id === userId && row.active);
+    assert.ok(member, "O mock pessoal exige vínculo ativo do próprio ator.");
+    assert.ok(!args.p_department_id || rest.departments.some((row) => row.company_id === companyId && row.id === args.p_department_id));
+    assert.ok(!args.p_job_title_id || rest.job_titles.some((row) => row.company_id === companyId && row.id === args.p_job_title_id && row.department_id === args.p_department_id));
+    Object.assign(member, { department_id: args.p_department_id, job_title_id: args.p_job_title_id });
+    const profile = rest.company_member_profiles.find((row) => row.member_id === member.id && row.company_id === companyId);
+    if (profile) Object.assign(profile, args.p_profile);
+    else rest.company_member_profiles.push({ member_id: member.id, company_id: companyId, ...args.p_profile });
+    return null;
+  }
   if (name === "update_company_member_profile") {
     Object.assign(rest.company_members.find((row) => row.id === args.p_member_id), { role: args.p_role, department_id: args.p_department_id, job_title_id: args.p_job_title_id });
     Object.assign(rest.company_member_profiles.find((row) => row.member_id === args.p_member_id), args.p_profile);
@@ -161,7 +186,18 @@ const mock = createServer(async (req, res) => {
     if (req.method === "OPTIONS") { res.writeHead(204).end(); return; }
     if (pathname === "/auth/v1/token") { await readJson(req); res.end(JSON.stringify(auth)); return; }
     if (pathname === "/auth/v1/user") { res.end(JSON.stringify(user)); return; }
-    if (pathname.startsWith("/rest/v1/rpc/")) { res.end(JSON.stringify(simulateRpc(pathname.split("/").at(-1), await readJson(req)))); return; }
+    if (pathname.startsWith("/rest/v1/rpc/")) {
+      const name = pathname.split("/").at(-1);
+      const args = await readJson(req);
+      if (name === "update_my_company_member_profile") {
+        selfProfileWrites.push({ args, failed: failSelfProfileWrite });
+        if (failSelfProfileWrite) {
+          rpcCalls.push({ name, args });
+          res.writeHead(403).end(JSON.stringify({ code: "42501", message: "Falha fictícia ao salvar meus dados." })); return;
+        }
+      }
+      res.end(JSON.stringify(simulateRpc(name, args))); return;
+    }
     if (pathname === "/rest/v1/expenses" && req.method === "PATCH") {
       const body = await readJson(req);
       expenseWrites.push({ body, failed: failExpenseWrite });
@@ -240,6 +276,77 @@ try {
   const fillLabel = (text, value, scope = "document") => evaluate(`(${((labelText, content, root) => { const label = Array.from(root.querySelectorAll("label")).find((node) => node.textContent.trim().startsWith(labelText)); const node = label.querySelector("input,select,textarea"); const prototype = node.tagName === "SELECT" ? HTMLSelectElement.prototype : node.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(prototype, "value").set.call(node, content); node.dispatchEvent(new Event(node.tagName === "SELECT" ? "change" : "input", { bubbles: true })); }).toString()})(${JSON.stringify(text)},${JSON.stringify(value)},${scope})`);
   const navigate = async (section) => { await cmd("Page.navigate", { url: origin + (section ? `/configuracoes?secao=${section}` : "/configuracoes") }); await waitFor(() => present('nav[aria-label="Seções de configurações"]'), `seção ${section || "meus-dados"}`); };
   const screenshot = async (name) => { const frame = await cmd("Page.captureScreenshot", { format: "png" }); await writeFile(join(artifacts, name), Buffer.from(frame.data, "base64")); };
+  const selfForm = () => evaluate(`(${((fields) => {
+    const root = document.querySelector(".settingsAccount");
+    if (!root) return null;
+    const field = (text) => Array.from(root.querySelectorAll("label")).find((label) => label.textContent.trim().startsWith(text))?.querySelector("input,select,textarea");
+    const fact = (text) => Array.from(root.querySelectorAll("dt")).find((node) => node.textContent === text)?.nextElementSibling?.textContent;
+    return {
+      profile: Object.fromEntries(fields.map(([key, label]) => [key, field(label)?.value])),
+      department: field("Departamento")?.value, job: field("Cargo cadastrado")?.value,
+      email: fact("E-mail de acesso"), role: fact("Tipo de usuário"),
+      inputs: root.querySelectorAll("input").length, selects: root.querySelectorAll("select").length,
+      editableIdentity: Array.from(root.querySelectorAll("label")).some((label) => /^(E-mail|Tipo de usuário)/.test(label.textContent.trim())) || Boolean(root.querySelector('input[type="email"]')),
+    };
+  }).toString()})(${JSON.stringify(personalFields)})`);
+  const waitSelfProfile = (profile, label) => waitFor(async () => {
+    const form = await selfForm();
+    return form && personalFields.every(([key]) => form.profile[key] === (profile[key] || ""));
+  }, label);
+  const assertSelfIdentity = async (role) => {
+    const form = await selfForm();
+    assert.equal(form.email, user.email, "O e-mail de acesso deve continuar fixo.");
+    assert.equal(form.role, role, "O tipo deve ser exibido sem permitir alteração pessoal.");
+    assert.equal(form.editableIdentity, false, "Não deve haver controle de edição para e-mail ou tipo de usuário.");
+    assert.equal(form.inputs, personalFields.length, "Os nove campos pessoais/bancários devem estar editáveis.");
+    assert.equal(form.selects, 2, "Somente Departamento e Cargo cadastrado devem ter seletores.");
+  };
+  const exerciseSelfEdit = async ({ profile, department, job, role, label, failFirst = false }) => {
+    const member = rest.company_members.find((row) => row.user_id === userId && row.company_id === companyId);
+    const savedProfile = rest.company_member_profiles.find((row) => row.member_id === member.id);
+    const beforeMember = structuredClone(member);
+    const beforeProfile = structuredClone(savedProfile);
+    const unrelated = () => ({
+      members: rest.company_members.filter((row) => row.user_id !== userId),
+      profiles: rest.company_member_profiles.filter((row) => row.member_id !== member.id),
+      companies: rest.companies, projects: rest.project_members, approvals: rest.member_approvers,
+    });
+    const beforeUnrelated = structuredClone(unrelated());
+    const adminWrites = rpcCalls.filter((call) => call.name === "update_company_member_profile").length;
+    await assertSelfIdentity(role);
+    for (const [key, fieldLabel] of personalFields) await fillLabel(fieldLabel, profile[key], "document.querySelector('.settingsAccount')");
+    await fillLabel("Departamento", department, "document.querySelector('.settingsAccount')");
+    await fillLabel("Cargo cadastrado", job, "document.querySelector('.settingsAccount')");
+    const writesBefore = selfProfileWrites.length;
+    if (failFirst) {
+      failSelfProfileWrite = true;
+      await clickText(".settingsAccount button", "Salvar meus dados");
+      await waitFor(() => bodyIncludes("Não foi possível salvar seus dados."), `erro 403 de ${label}`);
+      assert.equal(selfProfileWrites.length, writesBefore + 1);
+      assert.equal(selfProfileWrites.at(-1).failed, true);
+      assert.ok(await evaluate("document.querySelector('.settingsAccount [role=alert]')?.textContent.includes('Não foi possível salvar seus dados.')"), "A falha pessoal deve ficar legível no formulário.");
+      assert.deepEqual(member, beforeMember, "Falha não pode alterar o vínculo salvo.");
+      assert.deepEqual(savedProfile, beforeProfile, "Falha não pode alterar os dados pessoais persistidos.");
+      assert.deepEqual((await selfForm()).profile, profile, "O rascunho deve permanecer disponível para corrigir/repetir após falha.");
+      failSelfProfileWrite = false;
+    }
+    await clickText(".settingsAccount button", "Salvar meus dados");
+    await waitFor(() => bodyIncludes("Seus dados foram salvos e recarregados."), `gravação e recarga de ${label}`);
+    assert.equal(selfProfileWrites.length, writesBefore + (failFirst ? 2 : 1));
+    assert.equal(selfProfileWrites.at(-1).failed, false);
+    assert.deepEqual(selfProfileWrites.at(-1).args, { p_company_id: companyId, p_department_id: department, p_job_title_id: job, p_profile: profile }, "A edição pessoal não pode escolher outro usuário nem enviar tipo/e-mail.");
+    assert.deepEqual(Object.fromEntries(personalFields.map(([key]) => [key, savedProfile[key]])), profile);
+    assert.equal(member.department_id, department); assert.equal(member.job_title_id, job);
+    assert.equal(member.role, beforeMember.role); assert.equal(member.email, beforeMember.email);
+    assert.deepEqual(unrelated(), beforeUnrelated, "Salvar Meus dados deve preservar todos os outros cadastros e vínculos.");
+    assert.equal(rpcCalls.filter((call) => call.name === "update_company_member_profile").length, adminWrites, "Meus dados não deve usar o RPC administrativo para editar outros membros.");
+    // A fresh document forces a GET of the saved fixture, not just React draft
+    // state or the success message returned by the local RPC.
+    await navigate("");
+    await waitSelfProfile(profile, `${label} preservado após navegação completa`);
+    assert.equal((await selfForm()).department, department); assert.equal((await selfForm()).job, job);
+    await assertSelfIdentity(role);
+  };
   await cmd("Runtime.enable"); await cmd("Page.enable");
   await cmd("Fetch.enable", { patterns: [{ urlPattern: "*" }] });
   await cmd("Emulation.setDeviceMetricsOverride", { width: 1366, height: 900, deviceScaleFactor: 1, mobile: false });
@@ -252,13 +359,23 @@ try {
   await waitFor(() => present('nav[aria-label="Menu principal"]'), "sessão local simulada");
 
   await navigate("");
-  await waitFor(() => bodyIncludes("Banco fictício QA"), "perfil pessoal próprio");
+  await waitSelfProfile(rest.company_member_profiles[0], "perfil pessoal próprio editável");
   const menuSelector = 'nav[aria-label="Seções de configurações"]';
   const menuItems = await evaluate(`Array.from(document.querySelector(${JSON.stringify(menuSelector)}).querySelectorAll('a')).map((node) => node.textContent.trim())`);
   assert.equal(menuItems.length, 14, "Administrador deve ver as 14 configurações atuais.");
   assert.ok(!menuItems.some((item) => ["Centros de custo", "Fluxos de aprovação", "Cartões", "Adiantamentos", "Viagens"].includes(item)), "Itens removidos não devem voltar ao menu.");
-  assert.equal(await evaluate("document.querySelectorAll('.settingsAccount input,.settingsAccount textarea,.settingsAccount select').length"), 0, "Meus dados não deve permitir edição pessoal/bancária nem nome.");
-  assert.equal(await evaluate("Array.from(document.querySelectorAll('.settingsAccount button')).some((node) => /salvar/i.test(node.textContent))"), false);
+  const adminName = "Pessoa fictícia Admin QA";
+  const adminSelfProfile = { full_name: adminName, cpf: "000.000.000-00", birth_date: "2001-02-03", phone: "+55 00 00000-0000", job_label: "Função pessoal Admin QA", bank: "Banco próprio Admin QA", bank_branch: "AG-ADMIN-QA", bank_account: "CONTA-ADMIN-QA", pix_key: "admin-pix@example.test" };
+  await exerciseSelfEdit({ profile: adminSelfProfile, department: alternateDepartmentId, job: alternateJobId, role: "Administrador", label: "Meus dados/Admin", failFirst: true });
+  await fillLabel("Chave Pix", "rascunho-descartado@example.test", "document.querySelector('.settingsAccount')");
+  await clickText(".settingsAccount button", "Cancelar alterações");
+  assert.deepEqual((await selfForm()).profile, adminSelfProfile, "Cancelar deve restaurar os dados persistidos sem uma nova gravação.");
+  await fillLabel("Banco", "Rascunho não salvo", "document.querySelector('.settingsAccount')");
+  await evaluate("window.__qaConfirmations = []; window.confirm = (message) => { window.__qaConfirmations.push(message); return true; }");
+  await clickText(".settingsAccount button", "Recarregar cadastro");
+  await waitSelfProfile(adminSelfProfile, "recarregar cadastro pessoal descarta rascunho não salvo");
+  assert.equal((await evaluate("window.__qaConfirmations"))[0], "Descartar as alterações não salvas e recarregar seu cadastro?");
+  await screenshot("meus-dados-admin-editavel.png");
 
   await navigate("membros-equipe");
   await waitFor(() => bodyIncludes("Pessoa fictícia Normal"), "equipe administrativa");
@@ -315,14 +432,14 @@ try {
   assert.equal(await evaluate(`(${requesterLinks}).querySelectorAll('input').length`), 0);
   await fillLabel("Adicionar aprovador", userId, "document.querySelector('dialog')");
   await click('dialog button[aria-label="Subir etapa 2"]');
-  assert.deepEqual(await orderedApprovers(), ["Pessoa fictícia Admin", "Pessoa fictícia Intermediária"]);
+  assert.deepEqual(await orderedApprovers(), [adminName, "Pessoa fictícia Intermediária"]);
   await clickText("dialog button", "Salvar permissões de aprovação");
   await waitFor(() => bodyIncludes("Vínculos de aprovação salvos."), "ordem de aprovação persistida");
   const forwardCall = rpcCalls.filter((call) => call.name === "set_member_approvers").at(-1).args;
   assert.deepEqual(forwardCall, { p_company_id: companyId, p_member_id: employeeId, p_approver_ids: [userId, approverId], p_requester_ids: [] });
   assert.deepEqual(persistedApprovers(employeeId), [[userId, 1], [approverId, 2]]);
   await reopenMember("normal@example.test");
-  assert.deepEqual(await orderedApprovers(), ["Pessoa fictícia Admin", "Pessoa fictícia Intermediária"]);
+  assert.deepEqual(await orderedApprovers(), [adminName, "Pessoa fictícia Intermediária"]);
 
   // Edit the inverse direction: remove Normal from this approver's requesters
   // and add Admin. The unrelated Normal -> Admin link must remain untouched.
@@ -338,9 +455,9 @@ try {
   assert.deepEqual(persistedApprovers(employeeId), [[userId, 1]]);
   assert.deepEqual(persistedApprovers(userId), [[approverId, 1]]);
   await reopenMember("intermediario@example.test");
-  assert.deepEqual(await checkedRequesters(), ["Pessoa fictícia Admin"]);
+  assert.deepEqual(await checkedRequesters(), [adminName]);
   await reopenMember("normal@example.test");
-  assert.deepEqual(await orderedApprovers(), ["Pessoa fictícia Admin"], "Remover solicitante na tela inversa deve refletir na tela dele após recarga.");
+  assert.deepEqual(await orderedApprovers(), [adminName], "Remover solicitante na tela inversa deve refletir na tela dele após recarga.");
 
   // Restore the original requester via the inverse editor; append after the
   // existing Admin instead of resetting another approver's stored position.
@@ -353,7 +470,7 @@ try {
   assert.deepEqual(persistedApprovers(userId), []);
   assert.equal(rest.member_approvers.some((link) => link.requester_member_id === link.approver_member_id), false);
   await reopenMember("normal@example.test");
-  assert.deepEqual(await orderedApprovers(), ["Pessoa fictícia Admin", "Pessoa fictícia Intermediária"]);
+  assert.deepEqual(await orderedApprovers(), [adminName, "Pessoa fictícia Intermediária"]);
   await click('button[aria-label="Fechar cadastro"]');
 
   await navigate("projetos");
@@ -478,18 +595,28 @@ try {
   rest.company_members[0].role = "employee";
   await cmd("Emulation.setDeviceMetricsOverride", { width: 1366, height: 900, deviceScaleFactor: 1, mobile: false });
   await navigate("");
-  await waitFor(() => bodyIncludes("Banco fictício QA"), "Meus dados como usuário comum");
+  await waitSelfProfile(adminSelfProfile, "Meus dados editável como usuário comum");
   assert.equal(await evaluate(`document.querySelector(${JSON.stringify(menuSelector)}).querySelectorAll('a').length`), 5, "Usuário comum só vê cinco itens pessoais/política.");
   assert.equal(await present('a[href="/configuracoes?secao=membros-equipe"]'), false);
-  assert.equal(await evaluate("document.querySelectorAll('.settingsAccount input,.settingsAccount select,.settingsAccount textarea').length"), 0);
+  const normalSelfProfile = { full_name: "Pessoa titular Normal QA", cpf: "000.000.000-00", birth_date: "2002-03-04", phone: "+55 00 00000-0001", job_label: "Função pessoal Normal QA", bank: "Banco próprio Normal QA", bank_branch: "AG-NORMAL-QA", bank_account: "CONTA-NORMAL-QA", pix_key: "normal-pix@example.test" };
+  await exerciseSelfEdit({ profile: normalSelfProfile, department: departmentId, job: jobId, role: "Normal", label: "Meus dados/Normal" });
+  await screenshot("meus-dados-normal-editavel.png");
   await navigate("membros-equipe");
   await waitFor(() => bodyIncludes("Disponível apenas a administradores."), "bloqueio da rota administrativa para usuário comum");
   assert.equal(await present('button[aria-label="Fechar cadastro"]'), false);
+
+  rest.company_members[0].role = "approver";
+  await navigate("");
+  await waitSelfProfile(normalSelfProfile, "Meus dados editável como Intermediário");
+  const intermediarySelfProfile = { ...normalSelfProfile, full_name: "Pessoa titular Intermediária QA", bank: "Banco próprio Intermediário QA", pix_key: "intermediario-pix@example.test" };
+  await exerciseSelfEdit({ profile: intermediarySelfProfile, department: alternateDepartmentId, job: alternateJobId, role: "Intermediário", label: "Meus dados/Intermediário" });
+  assert.equal(await present('a[href="/configuracoes?secao=membros-equipe"]'), false);
   assert.equal(exceptions.length, 0, `Exceções JavaScript: ${exceptions.join(", ")}`);
   assert.equal(blockedRequests.length, 0, "A aplicação tentou rede externa durante o teste local.");
   assert.ok(routesSeen.has("POST /auth/v1/token"));
   assert.ok(routesSeen.has("GET /rest/v1/company_member_profiles"));
-  console.log("OK — Configurações V2: 14 itens/admin e 5/comum; perfil admin e Meus dados somente leitura; projetos vinculados e aprovações nas duas direções persistem após recarga, com ordem/papéis/sem autoaprovação; wizard/projetos inativos; despesas/km; menu desktop/mobile; histórico preserva centavos e lançamento assistido exige gravação confirmada. Tudo com Auth/REST/RPC simulados, sem rede externa.");
+  assert.ok(routesSeen.has("POST /rest/v1/rpc/update_my_company_member_profile"));
+  console.log("OK — Configurações V2: 14 itens/admin e 5/comum; Meus dados edita somente o próprio perfil/Admin/Normal/Intermediário, incluindo banco/Pix/departamento/cargo, com 403/retry, cancelamento e recarga; e-mail/tipo fixos e outros cadastros preservados; projetos vinculados e aprovações nas duas direções persistem após recarga, com ordem/papéis/sem autoaprovação; wizard/projetos inativos; despesas/km; menu desktop/mobile; histórico preserva centavos e lançamento assistido exige gravação confirmada. Tudo com Auth/REST/RPC simulados, sem rede externa.");
   console.log(`Capturas locais fictícias: ${artifacts}`);
 } catch (error) {
   console.error(error.message);

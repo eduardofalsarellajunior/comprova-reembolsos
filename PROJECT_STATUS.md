@@ -1,6 +1,6 @@
 # INEPAD Reembolso — estado do projeto
 
-**Referência:** retomada em 19/11/2026, 10:41 -03:00 (America/Sao_Paulo). Leia o [checkpoint](PROJECT_CHECKPOINT.md) para retomar. Evidências de produção de 18/11 e eventos anteriores permanecem identificados como histórico.
+**Referência:** alteração de Meus dados em 19/11/2026, 14:23 -03:00 (America/Sao_Paulo). Leia o [checkpoint](PROJECT_CHECKPOINT.md) para retomar. Evidências de produção de 18/11 e eventos anteriores permanecem identificados como histórico.
 
 ## Produto e repositório
 
@@ -60,6 +60,9 @@
 - E-mail continua desativado, sem cron ou envios. Planilha privada não importada; seis membros e um projeto existentes preservados. Configuração/importação e homologação autenticada são etapas distintas da publicação concluída.
 
 ## Retomada em 19/11/2026
+
+- **Novo pedido em implementação, ainda não publicado em produção:** autoedição dos dados pessoais/bancários e departamento/cargo do próprio membro ativo, inclusive Normal/Intermediário. Tipo de usuário continua administrativo; usuário confirmou manter e-mail de login inalterado. Substitui a decisão anterior de Meus dados somente leitura, sem abrir edição de outras pessoas.
+- Nova migration aditiva `20261119172222_comprova_self_profile_edit.sql`, gerada por CLI, implementa RPC self-only sem parâmetros de tipo ou usuário-alvo. Não altera migrations aplicadas nem concede UPDATE direto dos perfis. Novo ensaio SQL passou 7/7, com lint/TypeScript da interface aprovados; rebuild/browser novo e suíte combinada em preparação. Nenhum SQL remoto ou deploy nesta alteração.
 
 - GitHub confirmado em continuidade c5fdb41 / main c76c044. Não se repetiu publicação, migration ou configuração do banco; a situação de produção acima é o registro anterior, não nova homologação autenticada.
 - Microetapa concluída: teste browser ampliado dos vínculos de projetos e aprovadores, com persistência sintética e recarga completa. Passaram os dois sentidos da relação, ordem, papéis elegíveis, ausência de autoaprovação e preservação dos vínculos alheios. O browser também preservou as regressões anteriores de centavos/assistido; zero rede externa. Build atual 21/21, sintaxe e lint focado aprovados. Nenhuma regra da aplicação ou migration alterada.

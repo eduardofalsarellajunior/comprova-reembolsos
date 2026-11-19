@@ -1,6 +1,19 @@
 # INEPAD Reembolso — checkpoint de retomada
 
-## Checkpoint atual — retomada de 19/11 e validação dos vínculos administrativos
+## Checkpoint atual — autoedição de Meus dados em implementação
+
+- **Atualizado:** 2026-11-19 14:29:03 -03:00, America/Sao_Paulo.
+- **Ambiente/base:** Local/Windows no clone separado Temp `inepad-resume-20261119-92f4fd02a53544888f85b3b439228897`. Árvore local preserva alterações já publicadas; base remota conferida `3fcc5445b9473544ff167a84f216b12eeb945d60`, main `c76c04428ab511beaf7d6fd26ce8e91496206f55`.
+- **Pedido atual:** o próprio usuário pode editar seus dados pessoais e bancários, inclusive se Normal/Intermediário; tipo de usuário continua controlado administrativamente. Usuário confirmou manter o e-mail de login como está. Este pedido substitui a regra anterior de Meus dados somente leitura.
+- **Última etapa concluída:** UI editável e RPC aditiva implementadas. Novo teste PGlite passou 7/7; edição própria de Normal/Intermediário/Admin/owner, bloqueio de outra pessoa/empresa/tipo, preservação de Auth/identidades/vínculos/grants, validações e rollback. Lint/TypeScript da UI, sintaxe/lint do teste SQL e do browser passaram nas frentes de implementação.
+- **Em execução:** preparar a captura coerente, executar suíte combinada e rebuild/browser com mocks do novo formulário. Interface e banco já têm implementação, mas o fluxo novo de browser ainda não foi executado nem a alteração aplicada em produção.
+- **Contrato:** `update_my_company_member_profile(p_company_id,p_department_id,p_job_title_id,p_profile)` deriva o membro de auth.uid/empresa ativa e não aceita user_id/member_id/role. Permite os nove campos pessoais/bancários e departamento/cargo da própria empresa; não altera tipo, e-mail, identidade Auth, status ativo, projetos ou aprovadores.
+- **Arquivos:** account-settings.tsx, teste browser existente, migration nova e `tests/self-profile.postgres.mjs`, três registros e guia V2; manifesto ampliado para 69 caminhos explícitos. Migrations já aplicadas permanecem intactas; nenhum arquivo excluído.
+- **Próxima ação exata:** concluir UI/RPC/testes; testar Normal/Intermediário/Admin editando o próprio perfil, negação a outro usuário/empresa/inativo/anônimo e tentativa de mudar tipo, validação de CPF/data/cargo e rollback. Rodar build/lint e browser local com mocks antes de preparar ativação.
+- **Limites:** nenhuma autorização nova de SQL remoto, main ou deploy. Precisará aplicar somente a migration aditiva nova e liberar front após autorização específica; não repetir as quatro V2 já aplicadas. E-mail de login e outros sistemas/Auth permanecem intocados.
+- **Sincronização:** implementação estabilizada para primeiro snapshot desta alteração exclusivamente em codex/continuity sobre 3fcc544. Conferir o remoto antes/depois; não publicar se outra conta avançar nem misturar captura enquanto arquivos mudam. Testes pendentes devem permanecer explícitos até a próxima revisão.
+
+## Checkpoint anterior — retomada de 19/11 e validação dos vínculos administrativos
 
 - **Atualizado:** 2026-11-19 10:41:25 -03:00, America/Sao_Paulo.
 - **Ambiente:** Local/Windows, clone separado em `C:\Users\55169\AppData\Local\Temp\inepad-resume-20261119-92f4fd02a53544888f85b3b439228897`, branch `codex/continuity`, HEAD recebido `c5fdb4176eebcaf66fc5ce7ad37625b33644d9d8`. Não é Cloud nem worktree.

@@ -1,11 +1,11 @@
 # Configurações V2 — implementação e ativação segura
 
-As quatro migrations deste guia foram aplicadas e verificadas no projeto autorizado em 18/11/2026; o novo front ainda está em preparação para publicar nesta captura. Consulte PROJECT_CHECKPOINT.md para o estado mais recente. Importação real e envio de e-mails não foram ativados.
+As quatro migrations V2 e o front foram publicados/verificados em 18/11/2026, conforme registro de ativação abaixo. A autoedição de Meus dados solicitada em 19/11 é uma alteração adicional ainda em implementação, não ativada. Consulte PROJECT_CHECKPOINT.md para o estado mais recente. Importação real e envio de e-mails não foram ativados.
 
 ## Funcionalidade
 
 - Menu de 14 seções: removidos visão geral, centros de custos, Financeiro e configuração de fluxos. Dados históricos desses recursos são mantidos.
-- Meus dados exibe CPF, nascimento, telefone, cargo e banco/agência/conta/Pix do próprio cadastro, somente leitura. Administradores editam pela equipe, inclusive o próprio cadastro. Segurança, senha e preferências da conta permanecem disponíveis.
+- Na alteração de 19/11 em desenvolvimento, Meus dados permite editar o próprio nome, CPF, nascimento, telefone, cargo/departamento e banco/agência/conta/Pix. Comuns não alteram tipo; gestão de terceiros permanece administrativa. O e-mail de login fica inalterado por escolha explícita do usuário. Segurança, senha e preferências da conta permanecem disponíveis. A versão de 18/11 tinha Meus dados somente leitura até esta nova ativação.
 - Novas contas têm tipo Normal, Intermediário ou Administrador. O papel técnico financeiro legado permanece compatível para preservar o histórico, mas não pode ser atribuído a novos cadastros.
 - Equipe: edição administrativa, departamento/cargo, projetos e responsáveis por aprovação. A associação de login depende de e-mail confirmado; importar não cria usuários Auth nem redefine senha.
 - Projetos: edição, membros e resumo; listas ativas/inativas. Desativar mantém histórico e vínculos existentes; novo relatório exige projeto ativo autorizado.
@@ -28,6 +28,7 @@ Não executar todas as migrations históricas indiscriminadamente: há arquivos 
 Histórico remoto aplicado (não repetir): política/catálogos `20261118181924`, perfis/importação `20261118182000`, projetos/aprovações `20261118225734`, reporting/fila de e-mail `20261118225807`. Versões geradas pelo MCP diferem dos timestamps dos arquivos locais. As nove tabelas novas têm RLS; a outbox nega acesso direto a usuários e só o worker pode processá-la. O aviso informativo de RLS sem política nessa tabela é esperado ([referência do linter](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy)); não criar uma política de acesso amplo para silenciá-lo.
 
 ## E-mail de aprovação
+
 
 A aprovação final enfileira um evento transacional único. O servidor tenta processar o evento após a decisão apenas quando o envio está explicitamente ativado e configurado. Falha no e-mail nunca desfaz a aprovação.
 

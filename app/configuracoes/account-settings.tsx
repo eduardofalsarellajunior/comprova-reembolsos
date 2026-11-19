@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { SupabaseUser } from "@supabase/supabase-js";
 import { supabase } from "@/lib/workspace-browser";
 import { profileFields, teamRoleLabel, type MemberProfile } from "@/lib/team-profile";
@@ -66,47 +66,173 @@ export default function AccountSettings({ section, userId, email, companyId }: {
   return <AccountPanel key={`${user.id}:${section}:${companyId || ""}`} section={section} user={user} email={user.email || email} companyId={companyId} onUpdate={setUser} />;
 }
 
+type PersonalMember = { id: string; role: string; department_id: string | null; job_title_id: string | null };
+type PersonalDepartment = { id: string; name: string };
+type PersonalJob = PersonalDepartment & { department_id: string };
+type PersonalDraft = { profile: MemberProfile; department: string; job: string };
+type PersonalSnapshot = { key: string; member: PersonalMember; draft: PersonalDraft; departments: PersonalDepartment[]; jobs: PersonalJob[] };
+
+async function personalMembership(companyId: string, userId: string) {
+  const result = await supabase.from("company_members").select("id,role,department_id,job_title_id").eq("company_id", companyId).eq("user_id", userId).eq("active", true).maybeSingle();
+  if (result.error || !result.data) throw new Error("Não foi possível verificar seu vínculo com a empresa. Recarregue o cadastro ou procure o administrador.");
+  return result.data as PersonalMember;
+}
+
+async function personalSnapshot(companyId: string, userId: string, key: string): Promise<PersonalSnapshot> {
+  const member = await personalMembership(companyId, userId);
+  const [profile, departments, jobs] = await Promise.all([
+    supabase.from("company_member_profiles").select(profileFields.map((field) => field.key).join(",")).eq("company_id", companyId).eq("member_id", member.id).maybeSingle(),
+    supabase.from("departments").select("id,name").eq("company_id", companyId).order("name"),
+    supabase.from("job_titles").select("id,name,department_id").eq("company_id", companyId).order("name"),
+  ]);
+  if (profile.error || departments.error || jobs.error) throw new Error("Não foi possível carregar seu cadastro. Os dados pessoais não foram substituídos pelos dados do login.");
+  const values = profile.data as Partial<MemberProfile> | null;
+  return {
+    key, member, departments: departments.data || [], jobs: jobs.data || [],
+    draft: { profile: Object.fromEntries(profileFields.map(({ key: field }) => [field, values?.[field] || ""])) as MemberProfile, department: member.department_id || "", job: member.job_title_id || "" },
+  };
+}
+
+function sameMembership(first: PersonalMember, second: PersonalMember) {
+  return first.id === second.id && first.role === second.role && first.department_id === second.department_id && first.job_title_id === second.job_title_id;
+}
+
 function PersonalProfile({ companyId, userId, email, fallbackName }: { companyId?: string; userId: string; email: string; fallbackName: string }) {
-  const [snapshot, setSnapshot] = useState<{ key: string; profile: Partial<MemberProfile>; role: string; department: string; job: string; error: boolean }>({ key: "", profile: {}, role: "", department: "", job: "", error: false });
+  const [snapshot, setSnapshot] = useState<PersonalSnapshot | null>(null);
+  const [draft, setDraft] = useState<PersonalDraft | null>(null);
   const [revision, setRevision] = useState(0);
-  const key = `${companyId || ""}:${userId}`;
+  const [notice, setNotice] = useState<Notice | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [blocked, setBlocked] = useState(false);
+  const operation = useRef(0);
+  const pending = useRef(false);
+  const live = useRef(false);
+  const key = `${companyId || ""}:${userId}:${revision}`;
+
   useEffect(() => {
-    let live = true;
+    live.current = true;
+    const version = ++operation.current;
+    const current = () => live.current && operation.current === version;
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session || session.user.id !== userId) {
+        operation.current += 1;
+        pending.current = false;
+        setBusy(false);
+        setBlocked(true);
+        setSnapshot(null);
+        setDraft(null);
+        setNotice({ message: "Sua sessão mudou ou expirou. Entre novamente ou recarregue o cadastro.", error: true });
+      }
+    });
     async function load() {
       if (!companyId) return;
       try {
-        const membership = await supabase.from("company_members").select("id,role,department_id,job_title_id").eq("company_id", companyId).eq("user_id", userId).eq("active", true).maybeSingle();
-        if (membership.error || !membership.data) throw new Error();
-        const member = membership.data as { id: string; role: string; department_id: string | null; job_title_id: string | null };
-        const [profile, department, job] = await Promise.all([
-          supabase.from("company_member_profiles").select(profileFields.map((field) => field.key).join(",")).eq("company_id", companyId).eq("member_id", member.id).maybeSingle(),
-          member.department_id ? supabase.from("departments").select("name").eq("company_id", companyId).eq("id", member.department_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-          member.job_title_id ? supabase.from("job_titles").select("name").eq("company_id", companyId).eq("id", member.job_title_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
-        ]);
-        if (profile.error || department.error || job.error) throw new Error();
-        if (live) setSnapshot({ key, profile: profile.data || {}, role: member.role, department: department.data?.name || "", job: job.data?.name || "", error: false });
-      } catch {
-        if (live) setSnapshot({ key, profile: {}, role: "", department: "", job: "", error: true });
+        const session = await supabase.auth.getUser();
+        if (session.error || session.data.user?.id !== userId) throw new Error("Sua sessão mudou ou expirou. Entre novamente.");
+        const loaded = await personalSnapshot(companyId, userId, key);
+        if (!current()) return;
+        setSnapshot(loaded); setDraft(loaded.draft); setBlocked(false);
+      } catch (error) {
+        if (current()) setNotice({ message: error instanceof Error ? error.message : "Não foi possível carregar seu cadastro.", error: true });
       }
     }
     void load();
-    return () => { live = false; };
-  }, [companyId, userId, key, revision]);
-  if (!companyId) return <><p className="muted">Você ainda não está vinculado a uma empresa. Os dados cadastrais são administrados pela equipe responsável.</p><dl className="settingsAccountFacts"><div><dt>Nome de acesso</dt><dd>{fallbackName || "Não informado"}</dd></div><div><dt>E-mail de acesso</dt><dd>{email}</dd></div></dl></>;
-  if (snapshot.key !== key) return <p role="status">Carregando seu cadastro…</p>;
-  if (snapshot.error) return <><p className="warningBox" role="alert">Não foi possível carregar seu cadastro. Os dados pessoais não foram substituídos pelos dados do login.</p><button type="button" onClick={() => setRevision((value) => value + 1)}>Tentar novamente</button></>;
+    return () => { live.current = false; operation.current += 1; subscription.subscription.unsubscribe(); };
+  }, [companyId, userId, key]);
+
+  function reload() {
+    if (pending.current) return;
+    setSnapshot(null); setDraft(null); setNotice(null); setBlocked(false);
+    setRevision((value) => value + 1);
+  }
+
+  async function save(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!companyId || !snapshot || snapshot.key !== key || !draft || blocked || pending.current) return;
+    const profile = Object.fromEntries(profileFields.map(({ key: field }) => [field, draft.profile[field].trim()])) as MemberProfile;
+    for (const field of profileFields) {
+      if (profile[field.key].length > field.limit || /[\p{C}]/u.test(profile[field.key])) {
+        setNotice({ message: `Confira o campo ${field.label}; limite de ${field.limit} caracteres e sem caracteres de controle.`, error: true }); return;
+      }
+    }
+    if (profile.cpf && !/^(\d{11}|\d{3}\.\d{3}\.\d{3}-\d{2})$/.test(profile.cpf)) {
+      setNotice({ message: "Informe um CPF com 11 dígitos, ou deixe em branco.", error: true }); return;
+    }
+    if (profile.birth_date) {
+      const date = new Date(`${profile.birth_date}T00:00:00.000Z`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(profile.birth_date) || !Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== profile.birth_date || profile.birth_date < "1900-01-01" || profile.birth_date > new Date().toISOString().slice(0, 10)) {
+        setNotice({ message: "Informe uma data de nascimento válida, entre 1900 e hoje, ou deixe em branco.", error: true }); return;
+      }
+    }
+    if ((draft.department && !snapshot.departments.some((item) => item.id === draft.department)) || (draft.job && !snapshot.jobs.some((item) => item.id === draft.job && item.department_id === draft.department))) {
+      setNotice({ message: "Escolha um departamento e cargo válidos desta empresa.", error: true }); return;
+    }
+    const version = ++operation.current;
+    const current = () => live.current && operation.current === version;
+    pending.current = true; setBusy(true); setNotice(null);
+    let saved = false;
+    try {
+      const session = await supabase.auth.getUser();
+      if (!current()) return;
+      if (session.error || session.data.user?.id !== userId) { setBlocked(true); throw new Error("Sua sessão mudou ou expirou. Entre novamente."); }
+      const member = await personalMembership(companyId, userId);
+      if (!current()) return;
+      if (!sameMembership(member, snapshot.member)) { setBlocked(true); throw new Error("Seu vínculo ou cadastro foi alterado. Recarregue o cadastro antes de salvar novamente."); }
+      const result = await supabase.rpc("update_my_company_member_profile", {
+        p_company_id: companyId, p_department_id: draft.department || null,
+        p_job_title_id: draft.job || null, p_profile: profile,
+      });
+      if (!current()) return;
+      if (result.error) {
+        if (result.error.code === "PGRST202" || result.error.code === "42883") throw new Error("A edição de Meus dados ainda não foi ativada no banco de dados. Procure o administrador.");
+        throw new Error("Não foi possível salvar seus dados. Confira o cadastro e suas permissões e tente novamente.");
+      }
+      saved = true;
+      setBlocked(true);
+      const loaded = await personalSnapshot(companyId, userId, key);
+      if (!current()) return;
+      if (loaded.member.id !== snapshot.member.id || loaded.member.role !== snapshot.member.role) throw new Error();
+      setSnapshot(loaded); setDraft(loaded.draft); setBlocked(false);
+      setNotice({ message: "Seus dados foram salvos e recarregados." });
+    } catch (error) {
+      if (current()) setNotice({ message: saved ? "Seus dados foram salvos, mas não foi possível recarregar o cadastro. Use Recarregar cadastro antes de fazer novas alterações." : error instanceof Error ? error.message : "Não foi possível confirmar o salvamento. Recarregue o cadastro antes de tentar novamente.", error: true });
+    } finally {
+      if (current()) { pending.current = false; setBusy(false); }
+    }
+  }
+
+  if (!companyId) return <><p className="muted">Você ainda não está vinculado a uma empresa. Procure o administrador para habilitar seu cadastro.</p><dl className="settingsAccountFacts"><div><dt>Nome de acesso</dt><dd>{fallbackName || "Não informado"}</dd></div><div><dt>E-mail de acesso</dt><dd>{email}</dd></div></dl></>;
+  if (!snapshot || snapshot.key !== key || !draft) return <>{notice ? <><p className="warningBox" role="alert">{notice.message}</p><button type="button" onClick={reload}>Tentar novamente</button></> : <p role="status">Carregando seu cadastro…</p>}</>;
+  const dirty = JSON.stringify(draft) !== JSON.stringify(snapshot.draft);
   return <>
-    <p className="muted">Dados pessoais e bancários são gerenciados somente pelos administradores em Membros de equipe. Para corrigir qualquer informação, procure o responsável pela empresa.</p>
-    <h3>Cadastro pessoal</h3>
-    <dl className="settingsAccountFacts">
-      <div><dt>E-mail de acesso</dt><dd>{email}</dd></div>
-      <div><dt>Tipo de usuário</dt><dd>{teamRoleLabel(snapshot.role)}</dd></div>
-      {profileFields.slice(0, 5).map((field) => <div key={field.key}><dt>{field.label}</dt><dd>{field.key === "birth_date" && snapshot.profile.birth_date ? snapshot.profile.birth_date.split("-").reverse().join("/") : snapshot.profile[field.key] || "Não informado"}</dd></div>)}
-      <div><dt>Departamento</dt><dd>{snapshot.department || "Não informado"}</dd></div>
-      <div><dt>Cargo cadastrado</dt><dd>{snapshot.job || "Não informado"}</dd></div>
-    </dl>
-    <h3>Dados para reembolso</h3>
-    <dl className="settingsAccountFacts">{profileFields.slice(5).map((field) => <div key={field.key}><dt>{field.label}</dt><dd>{snapshot.profile[field.key] || "Não informado"}</dd></div>)}</dl>
+    <p className="muted">Edite seus dados pessoais e bancários nesta empresa. O e-mail de acesso permanece inalterado; o tipo de usuário é gerenciado pelos administradores.</p>
+    <dl className="settingsAccountFacts"><div><dt>E-mail de acesso</dt><dd>{email}</dd></div><div><dt>Tipo de usuário</dt><dd>{teamRoleLabel(snapshot.member.role)}</dd></div></dl>
+    <form className="compactForm" onSubmit={(event) => void save(event)} aria-busy={busy}>
+      <fieldset className="compactForm" disabled={busy || blocked}>
+        <legend>Cadastro pessoal</legend>
+        {profileFields.slice(0, 5).map((field) => <label key={field.key}>{field.label}<input
+          type={field.key === "birth_date" ? "date" : field.key === "phone" ? "tel" : "text"}
+          inputMode={field.key === "cpf" ? "numeric" : undefined} autoComplete="off"
+          min={field.key === "birth_date" ? "1900-01-01" : undefined}
+          max={field.key === "birth_date" ? new Date().toISOString().slice(0, 10) : undefined}
+          maxLength={field.limit} value={draft.profile[field.key]}
+          onChange={(event) => setDraft({ ...draft, profile: { ...draft.profile, [field.key]: event.target.value } })} />
+        </label>)}
+        <label>Departamento<select value={draft.department} onChange={(event) => setDraft({ ...draft, department: event.target.value, job: "" })}><option value="">Não informado</option>{snapshot.departments.map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
+        <label>Cargo cadastrado<select value={draft.job} disabled={!draft.department} onChange={(event) => setDraft({ ...draft, job: event.target.value })}><option value="">Não informado</option>{snapshot.jobs.filter((item) => item.department_id === draft.department).map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
+      </fieldset>
+      <fieldset className="compactForm" disabled={busy || blocked}>
+        <legend>Dados para reembolso</legend>
+        {profileFields.slice(5).map((field) => <label key={field.key}>{field.label}<input autoComplete="off" maxLength={field.limit} value={draft.profile[field.key]} onChange={(event) => setDraft({ ...draft, profile: { ...draft.profile, [field.key]: event.target.value } })} /></label>)}
+      </fieldset>
+      <p className="muted">Campos sem informação podem ficar vazios. As alterações valem somente para seu cadastro nesta empresa.</p>
+      <div className="actions">
+        <button className="primary" type="submit" disabled={busy || blocked || !dirty}>{busy ? "Salvando…" : "Salvar meus dados"}</button>
+        <button type="button" disabled={busy || blocked || !dirty} onClick={() => { setDraft(snapshot.draft); setNotice(null); }}>Cancelar alterações</button>
+        <button type="button" disabled={busy} onClick={() => { if (!dirty || window.confirm(blocked ? "Recarregar o cadastro atual da empresa?" : "Descartar as alterações não salvas e recarregar seu cadastro?")) reload(); }}>Recarregar cadastro</button>
+      </div>
+    </form>
+    {notice && <p className={notice.error ? "warningBox" : "muted"} role={notice.error ? "alert" : "status"}>{notice.message}</p>}
   </>;
 }
 
