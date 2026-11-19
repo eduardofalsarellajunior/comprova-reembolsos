@@ -1,15 +1,15 @@
 # INEPAD Reembolso — checkpoint de retomada
 
-## Checkpoint atual — ativação e importação de membros autorizadas; pré-validação
+## Checkpoint atual — migration de autoedição aplicada; release e importação em preparação
 
-- **Atualizado:** 2026-11-19 14:45 -03:00, America/Sao_Paulo.
+- **Atualizado:** 2026-11-19 14:51 -03:00, America/Sao_Paulo.
 - **Responsável/objetivo:** Codex local; ativar a autoedição validada e cadastrar todos os membros do novo XLS privado fornecido pelo administrador.
 - **Autorização:** o usuário aprovou expressamente a migration nova e a publicação do front. Também solicitou a importação do novo documento de equipe; não é autorização para alterar Auth, senhas, e-mails, outros sistemas ou inferir vínculos de projetos/aprovadores.
 - **Base:** mesmo clone Local/Windows Temp, índice preservado. Remotos confirmados continuidade `c80f6d827e89816a9090b83cdcba68486d01b8fe` e main `c76c04428ab511beaf7d6fd26ce8e91496206f55`. Produção ainda no deploy anterior READY.
-- **Concluído:** acesso ao projeto destino confirmado ACTIVE_HEALTHY; empresa INEPAD única, seis membros e zero perfis; quatro migrations V2 já aplicadas, nova RPC ausente. RLS ativo nas tabelas envolvidas; helper privado e RPC de importação autenticada com search_path seguro. Revisão independente sem bloqueador no contrato novo.
-- **Em execução:** inventário privado do novo XLS e revisão do release; nenhum dado real importado e nova migration ainda não aplicada nesta captura. Advisors anteriores não apontam problema da nova alteração; alertas de outros schemas não serão corrigidos fora do escopo.
+- **Concluído:** aplicada somente migration self_profile_edit, versão remota `20261119174653`; assinatura, search_path vazio e execute authenticated/anon negado conferidos. Quatro tabelas envolvidas continuam com RLS; seis membros/zero perfis e hash de papéis/identidades preservados. Contagens Auth/identidades/buckets/objetos e estrutura public idênticas ao pré-teste. Código de release conferido contra o QA, somente diferença CRLF/LF normalizada em arquivos novos.
+- **Em execução:** novo XLS validado privadamente: vinte e-mails distintos, dezesseis Normais/quatro Administradores; dezenove novos e um existente. Outras duas abas vazias; telefone/nascimento/Pix ausentes, nove CPFs presentes, onze ausentes. Sem projetos/aprovadores/status para inferir. Não criar departamento 'Não definido'. Nenhum cadastro real gravado ainda; front anterior permanece até confirmar release READY.
 - **Arquivos/testes:** código permanece o snapshot validado (20 testes, build, lint, browser simulados e smoke da etapa anterior). Alterados apenas documentos nesta microetapa. Não repetir dados pessoais no Git nem testes reais sem contexto controlado.
-- **Próxima ação exata:** publicar checkpoint sobre c80f6d8; aplicar somente migration self_profile_edit após verificar hash/ausência; conferir ACL/RLS/contagens. Preparar release fast-forward em clone separado e verificar Vercel. Para XLS, executar prévia autenticada e importação sem sobrescrever perfis/tipos existentes, somente na empresa INEPAD.
+- **Próxima ação exata:** publicar checkpoint sobre `44ca4fc5d97aae4f3f44810f05a683eb8fc5147d`, atualizar clone limpo de release somente FF e publicar main após revalidar refs. Verificar READY/domínio. Importar XLS em transação administrativa explícita pelo conector, sem forjar identidade Auth: novos membros + helper privado fill_only; preservar ids/tipos/ativação, preencher classificações apenas por correspondência exata no catálogo e campos vazios. Validar contagens e invariantes no final da mesma transação.
 - **Recuperação/limites:** migration aditiva pode permanecer sem a UI nova; rollback do front para main anterior não exclui perfis. Importação terá resumo de novos/existentes e validação por e-mail, sem exclusões. Não enviar convites, ativar e-mail/ERP ou modificar public/Auth/Storage. Sincronização desta revisão pendente até confirmar SHA remoto.
 
 ## Checkpoint anterior — autoedição de Meus dados validada localmente; ativação pendente
