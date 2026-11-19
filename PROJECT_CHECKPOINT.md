@@ -9,7 +9,8 @@
 - **Testes locais:** SQL de Configurações aprovado; suíte combinada teve 20 aprovações e um smoke bloqueado pelo sandbox, que passou isoladamente fora dele, total funcional 21/21. Browser sintético aprovou cancelar, excluir, recarregar e bloquear projeto com histórico; build Webpack/TypeScript 21 páginas e lint integral passaram. Dados do browser são fictícios e sem rede externa.
 - **Usuários concluídos:** importação privada anterior permanece em 20 linhas, 19 membros novos, 1 existente, 3 novos administradores, 20 perfis, 17 departamentos e 17 cargos. Auth, senhas, projetos e aprovadores não foram inferidos pela importação.
 - **Produção atual:** main/continuidade de release anterior `698d51040499c8f63362c82f832c79f013475057`; Vercel `dpl_2Na3ymUJ5NBQdxEWQMtENSFjv88q` READY. O banco e o catálogo novos já existem, mas o botão Excluir ainda não aparece no site até novo push à main/deploy.
-- **Próxima ação exata:** publicar código e documentação somente em `codex/continuity` pelo publisher autorizado e confirmar SHA/main preservada. Solicitar autorização específica para fast-forward de main e deploy; depois fazer smoke de produção. Não repetir migration nem carga.
+- **Sincronização:** snapshot funcional confirmado em `codex/continuity` no SHA `433f632c73c8daf761462f51862b01f9878064a7`; `main` permaneceu em `698d51040499c8f63362c82f832c79f013475057`. Este registro final será um checkpoint documental posterior na mesma branch, sem main/deploy.
+- **Próxima ação exata:** solicitar autorização específica para fast-forward de main e deploy; depois confirmar Vercel READY e fazer smoke de produção do botão. Não repetir migration nem carga.
 - **Limites:** nenhum vínculo de membros foi inventado; projetos ficam disponíveis para configuração administrativa. Não tocar Auth/public/Storage/outros schemas nem alterar os avisos antigos do banco compartilhado.
 
 ## Checkpoint anterior — migration de autoedição aplicada; release e importação em preparação
