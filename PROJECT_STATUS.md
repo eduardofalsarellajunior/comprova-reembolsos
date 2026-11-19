@@ -1,6 +1,6 @@
 # INEPAD Reembolso — estado do projeto
 
-**Referência:** retomada em 19/11/2026, 10:35 -03:00 (America/Sao_Paulo). Leia o [checkpoint](PROJECT_CHECKPOINT.md) para retomar. Evidências de produção de 18/11 e eventos anteriores permanecem identificados como histórico.
+**Referência:** retomada em 19/11/2026, 10:41 -03:00 (America/Sao_Paulo). Leia o [checkpoint](PROJECT_CHECKPOINT.md) para retomar. Evidências de produção de 18/11 e eventos anteriores permanecem identificados como histórico.
 
 ## Produto e repositório
 
@@ -62,7 +62,8 @@
 ## Retomada em 19/11/2026
 
 - GitHub confirmado em continuidade c5fdb41 / main c76c044. Não se repetiu publicação, migration ou configuração do banco; a situação de produção acima é o registro anterior, não nova homologação autenticada.
-- Próxima microetapa autorizada: completar teste simulado dos vínculos de projetos e aprovadores, verificando persistência ao reabrir/recarregar. O teste atual não exercita essas gravações e seu mock ainda não as persiste; a ampliação não modifica regras de negócio.
+- Microetapa concluída: teste browser ampliado dos vínculos de projetos e aprovadores, com persistência sintética e recarga completa. Passaram os dois sentidos da relação, ordem, papéis elegíveis, ausência de autoaprovação e preservação dos vínculos alheios. O browser também preservou as regressões anteriores de centavos/assistido; zero rede externa. Build atual 21/21, sintaxe e lint focado aprovados. Nenhuma regra da aplicação ou migration alterada.
+- Limites do ensaio: criação manual/importação CSV pela interface ainda sem cobertura browser específica; parser/SQL têm evidências anteriores. Não foi repetida suíte SQL nem homologação real. O teste simulado não substitui contas controladas, RLS real ou configuração administrativa escolhida pelo usuário.
 - Trabalho divergente do checkout antigo foi inventariado e preservado sem integração automática. Eventual endurecimento do worker deve ser tratado como alteração aditiva futura, não como edição de migration já aplicada.
 - Uso real ainda depende de projetos e aprovadores definidos pelo administrador, além de contexto próprio para homologação autenticada. Nenhum vínculo será adivinhado.
 
