@@ -1,6 +1,6 @@
 # INEPAD Reembolso — estado do projeto
 
-**Referência:** 18/11/2026, 20:04 -03:00 (America/Sao_Paulo). Leia o [checkpoint](PROJECT_CHECKPOINT.md) para retomar. Os eventos de 17/11 abaixo permanecem como histórico.
+**Referência:** retomada em 19/11/2026, 10:35 -03:00 (America/Sao_Paulo). Leia o [checkpoint](PROJECT_CHECKPOINT.md) para retomar. Evidências de produção de 18/11 e eventos anteriores permanecem identificados como histórico.
 
 ## Produto e repositório
 
@@ -8,7 +8,7 @@
 - **Repositório:** [eduardofalsarellajunior/comprova-reembolsos](https://github.com/eduardofalsarellajunior/comprova-reembolsos).
 - **Produção em 18/11:** [comprova-reembolsos.vercel.app](https://comprova-reembolsos.vercel.app/) serve a revisão `c76c04428ab511beaf7d6fd26ce8e91496206f55`, deploy Vercel `dpl_HJ7ssGTPgpLeve8gxVbKL9mhDjg4` READY/production, Next.js. A revisão anterior foi `b36af53`, deploy `dpl_7VFpffhuCx8UDiVB3Jox5mCd6Xxn`; trocar apenas o front não desfaz as regras V2 do banco.
 - **GitHub:** `main = c76c04428ab511beaf7d6fd26ce8e91496206f55` confirmado após push normal fast-forward. Continuidade recebeu o mesmo release e recebe separadamente a documentação pós-deploy. Não confunda o checkout local antigo com a ponta remota.
-- **Checkout local atual:** Local/Windows, clone separado `comprova/comprova-reembolsos`, branch `codex/continuity`, HEAD local `36c8364`. O publisher preserva esta árvore/índice e publica snapshots em outro clone; por isso as cópias publicadas continuam aparecendo modificadas aqui. O antigo checkout `codex/comprova-v1-preview` de outro computador está descrito apenas como histórico.
+- **Checkout local atual:** Local/Windows, clone separado no Temp em `inepad-resume-20261119-92f4fd02a53544888f85b3b439228897`, branch `codex/continuity`, base recebida `c5fdb41`. O checkout OneDrive antigo em `codex/comprova-v1-preview` / `477aecf` foi preservado; não copiar seus arquivos sobre as correções mais recentes. O publisher mantém a origem e confirma separadamente a ponta remota.
 - **Transferência entre contas:** usar a ponta remota de `codex/continuity` e o checkpoint mais recente. A antiga [branch codex/comprova-handoff](https://github.com/eduardofalsarellajunior/comprova-reembolsos/tree/codex/comprova-handoff), SHA `2ae7d6a`, contém somente documentação histórica; a produção continua separada em `main`.
 
 ## Arquitetura e pontos de entrada
@@ -58,6 +58,13 @@
 - Smoke ao vivo 10/10: raiz redireciona, quatro páginas e PNG respondem 200, quatro APIs recusam chamadas sem credenciais com 401. Vercel confirmou domínio/SHA/READY; nenhum error/fatal ou cluster encontrado na janela de dez minutos. Não há drains externos configurados. Evidências locais anteriores de build/lint/browser/SQL continuam válidas; não houve homologação com contas ou OCR reais.
 - **Pendência operacional:** administrador precisa vincular solicitantes, inclusive ele próprio, a projetos ativos e definir aprovadores ativos elegíveis em Membros de equipe. Sem projeto, novos relatórios/vínculos de despesas ficam bloqueados; sem aprovador, o envio é bloqueado. Migrations não inventam essas atribuições.
 - E-mail continua desativado, sem cron ou envios. Planilha privada não importada; seis membros e um projeto existentes preservados. Configuração/importação e homologação autenticada são etapas distintas da publicação concluída.
+
+## Retomada em 19/11/2026
+
+- GitHub confirmado em continuidade c5fdb41 / main c76c044. Não se repetiu publicação, migration ou configuração do banco; a situação de produção acima é o registro anterior, não nova homologação autenticada.
+- Próxima microetapa autorizada: completar teste simulado dos vínculos de projetos e aprovadores, verificando persistência ao reabrir/recarregar. O teste atual não exercita essas gravações e seu mock ainda não as persiste; a ampliação não modifica regras de negócio.
+- Trabalho divergente do checkout antigo foi inventariado e preservado sem integração automática. Eventual endurecimento do worker deve ser tratado como alteração aditiva futura, não como edição de migration já aplicada.
+- Uso real ainda depende de projetos e aprovadores definidos pelo administrador, além de contexto próprio para homologação autenticada. Nenhum vínculo será adivinhado.
 
 ## Histórico de desenvolvimento e continuidade — 17 e 18/11/2026
 

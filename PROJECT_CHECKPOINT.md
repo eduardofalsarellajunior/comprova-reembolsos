@@ -1,6 +1,20 @@
 # INEPAD Reembolso — checkpoint de retomada
 
-## Checkpoint atual — Configurações V2 em produção; configuração administrativa pendente
+## Checkpoint atual — retomada de 19/11 e validação dos vínculos administrativos
+
+- **Atualizado:** 2026-11-19 10:35:54 -03:00, America/Sao_Paulo.
+- **Ambiente:** Local/Windows, clone separado em `C:\Users\55169\AppData\Local\Temp\inepad-resume-20261119-92f4fd02a53544888f85b3b439228897`, branch `codex/continuity`, HEAD recebido `c5fdb4176eebcaf66fc5ce7ad37625b33644d9d8`. Não é Cloud nem worktree.
+- **Objetivo:** retomar o estado mais recente sem repetir release/migrations nem sobrescrever o checkout antigo. Completar a checagem local de salvar e recarregar vínculos de projetos/aprovadores, antes da configuração real pelo administrador.
+- **Última etapa concluída:** remoto conferido: continuidade `c5fdb41`, main `c76c04428ab511beaf7d6fd26ce8e91496206f55`. O checkpoint de 18/11 registra V2 publicada e quatro migrations aplicadas; não foram reexecutadas nem verificadas remotamente nesta sessão.
+- **Preservação:** checkout OneDrive antigo em `codex/comprova-v1-preview` / `477aecf` mantido, com trabalho pendente. Comparação dos 59 caminhos funcionais da allowlist: 53 idênticos e seis divergentes; nenhum arquivo copiado ou integrado entre as árvores.
+- **Diferenças locais não integradas:** CSS de centralização do diálogo; checagens internas adicionais de service_role e seu teste; melhorias de espera de imagens/proteção do proprietário no browser. O snapshot atual também tem correções posteriores de centavos/assistido e do publisher que não devem ser substituídas. SQL já aplicado não deve ser reescrito para recuperar patches antigos; eventual endurecimento exige alteração aditiva revisada e autorização remota específica.
+- **Em execução:** ampliar somente `tests/settings-v2.browser.mjs`: persistência sintética de projetos/aprovadores e prova de salvar → fechar → reabrir/recarregar, sem conta real ou rede externa. Documentação atualizada junto dos testes; nenhum arquivo excluído.
+- **Testes desta sessão:** inventário e comparação de conteúdo concluídos. Nenhum novo build/browser/SQL aprovado ainda; resultados de 17/18 são evidências históricas. Comandos Git de status tiveram atraso, mas confirmaram clone limpo antes das novas alterações, branch/remoto corretos e índice sem stage.
+- **Próxima ação exata:** concluir e conferir a sintaxe do teste de vínculos, preparar QA isolado sem .env e executar o novo cenário contra a versão atual com Auth/REST/RPC simulados. Salvar o resultado e confirmar o push somente para continuidade usando a base c5fdb41, após conferir concorrência.
+- **Limites e informações necessárias:** administrador precisa informar projetos e responsáveis reais por aprovação; não atribuir pessoas por suposição. E-mail continua desligado e planilha não importada segundo registro anterior; não modificar configuração ou dados remotos. Homologação real exige contas controladas/contexto próprio.
+- **Sincronização:** novo trabalho ainda local neste clone; publicar checkpoint e teste juntos exclusivamente em `codex/continuity`. Não fazer push/merge à main, deploy, alteração de Vercel, SQL remoto, importação real, envio ou pagamento. O checkout antigo permanece separado para recuperação.
+
+## Checkpoint anterior — Configurações V2 em produção; configuração administrativa pendente
 
 - **Atualizado:** 2026-11-18 20:04:40 -03:00, America/Sao_Paulo.
 - **Ambiente:** Local/Windows, clone limpo e separado em `C:\Users\Eduardo2usuário2\OneDrive - INEPAD CONSULTING LTDA\Documentos\ChatGPT\Comprova\comprova-reembolsos`; não é Cloud nem worktree. A pasta inicial continha registros locais de despesas e um Git vazio, que foram preservados sem alteração.

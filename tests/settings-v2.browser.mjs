@@ -96,6 +96,47 @@ function simulateRpc(name, args) {
     rest.project_members = [...rest.project_members.filter((link) => link.project_id !== id), ...args.p_member_ids.map((member_id) => ({ company_id: companyId, project_id: id, member_id }))];
     return id;
   }
+  // Persist the two administrative link editors independently of React state.
+  // This is only the synthetic contract, not a replacement for SQL/RLS tests.
+  if (name === "set_member_projects") {
+    const ids = [...new Set(args.p_project_ids || [])];
+    assert.equal(args.p_company_id, companyId);
+    assert.ok(rest.company_members.some((member) => member.id === args.p_member_id));
+    assert.ok(ids.every((id) => rest.projects.some((project) => project.id === id && (project.active || rest.project_members.some((link) => link.project_id === id && link.member_id === args.p_member_id)))));
+    rest.project_members = [
+      ...rest.project_members.filter((link) => link.member_id !== args.p_member_id),
+      ...ids.map((project_id) => ({ company_id: companyId, project_id, member_id: args.p_member_id })),
+    ];
+    return null;
+  }
+  if (name === "set_member_approvers") {
+    const member = rest.company_members.find((row) => row.id === args.p_member_id);
+    const approvers = args.p_approver_ids || [];
+    const requesters = args.p_requester_ids;
+    const eligible = (row) => row?.active && ["admin", "approver"].includes(row.role);
+    assert.equal(args.p_company_id, companyId);
+    assert.ok(member);
+    assert.equal(new Set(approvers).size, approvers.length);
+    assert.ok(approvers.every((id) => id !== member.id && eligible(rest.company_members.find((row) => row.id === id))));
+    if (requesters != null) {
+      assert.ok(!requesters.length || eligible(member));
+      assert.ok(requesters.every((id) => id !== member.id && rest.company_members.some((row) => row.id === id && row.active)));
+    }
+    let links = [
+      ...rest.member_approvers.filter((link) => link.requester_member_id !== member.id),
+      ...approvers.map((approver_member_id, index) => ({ company_id: companyId, requester_member_id: member.id, approver_member_id, position: index + 1 })),
+    ];
+    if (requesters != null) {
+      links = links.filter((link) => link.approver_member_id !== member.id || requesters.includes(link.requester_member_id));
+      for (const requester_member_id of new Set(requesters)) {
+        if (links.some((link) => link.requester_member_id === requester_member_id && link.approver_member_id === member.id)) continue;
+        const position = Math.max(0, ...links.filter((link) => link.requester_member_id === requester_member_id).map((link) => link.position)) + 1;
+        links.push({ company_id: companyId, requester_member_id, approver_member_id: member.id, position });
+      }
+    }
+    rest.member_approvers = links;
+    return null;
+  }
   if (name === "save_expense_policy_config") {
     Object.assign(rest.expense_policy_configs[0], { name: args.p_name, past_days: args.p_past_days, future_days: args.p_future_days });
     rest.expense_policy_limits = args.p_limits.map((row) => ({ ...row, company_id: companyId, policy_id: expensePolicyId }));
@@ -234,6 +275,85 @@ try {
   await waitFor(() => bodyIncludes("Quem aprova os relatórios deste membro"), "permissões de aprovação");
   assert.equal(await evaluate("Array.from(document.querySelectorAll('dialog select option')).filter((node) => node.parentElement.parentElement.textContent.startsWith('Adicionar aprovador')).some((node) => node.textContent.includes('Pessoa fictícia Normal'))"), false, "Sem autoaprovação no seletor.");
   await screenshot("equipe-modal-desktop.png");
+
+  const projectLinks = "Array.from(document.querySelectorAll('dialog section')).find((node) => node.querySelector('h3')?.textContent === 'Projetos vinculados')";
+  const approvalLinks = "Array.from(document.querySelectorAll('dialog section')).find((node) => node.querySelector('h3')?.textContent === 'Permissões de aprovação')";
+  const requesterLinks = `Array.from((${approvalLinks}).querySelectorAll('h4')).find((node) => node.textContent === 'De quem este membro pode aprovar relatórios').parentElement`;
+  const reopenMember = async (email) => {
+    await click('button[aria-label="Fechar cadastro"]');
+    await navigate("membros-equipe");
+    await waitFor(() => bodyIncludes(email), `equipe recarregada para ${email}`);
+    await evaluate(`Array.from(document.querySelectorAll('tbody tr')).find((row) => row.textContent.includes(${JSON.stringify(email)})).querySelector('button').click()`);
+    await waitFor(() => present("dialog[open]"), "cadastro reaberto após navegação");
+    await waitFor(() => evaluate(`Boolean((${projectLinks})?.querySelector('input')) && Boolean((${approvalLinks})?.querySelector('select')) && !(${approvalLinks}).textContent.includes('Carregando aprovadores')`), "vínculos recarregados do mock");
+  };
+  const checkedProjects = () => evaluate(`Array.from((${projectLinks}).querySelectorAll('label')).filter((label) => label.querySelector('input')?.checked).map((label) => label.textContent.trim())`);
+  const orderedApprovers = () => evaluate(`Array.from((${approvalLinks}).querySelectorAll('ol li > span')).map((node) => node.textContent.trim())`);
+  const checkedRequesters = () => evaluate(`Array.from((${requesterLinks}).querySelectorAll('label')).filter((label) => label.querySelector('input')?.checked).map((label) => label.textContent.trim())`);
+  const persistedApprovers = (memberId) => rest.member_approvers.filter((link) => link.requester_member_id === memberId).sort((a, b) => a.position - b.position).map((link) => [link.approver_member_id, link.position]);
+
+  // Removing and restoring a project must survive a full page navigation, not
+  // merely the success notice or an optimistic checkbox update in the modal.
+  assert.deepEqual(await checkedProjects(), ["Projeto fictício ativo"]);
+  assert.equal(await evaluate(`(${projectLinks}).textContent.includes('Projeto fictício inativo')`), false);
+  await evaluate(`(${projectLinks}).querySelector('input').click()`);
+  await clickText("dialog button", "Salvar projetos vinculados");
+  await waitFor(() => bodyIncludes("Projetos vinculados."), "remoção de projeto persistida");
+  assert.deepEqual(rpcCalls.filter((call) => call.name === "set_member_projects").at(-1).args.p_project_ids, []);
+  assert.equal(rest.project_members.some((link) => link.member_id === employeeId), false);
+  await reopenMember("normal@example.test");
+  assert.deepEqual(await checkedProjects(), []);
+  await evaluate(`(${projectLinks}).querySelector('input').click()`);
+  await clickText("dialog button", "Salvar projetos vinculados");
+  await waitFor(() => bodyIncludes("Projetos vinculados."), "restauração de projeto persistida");
+  assert.deepEqual(rpcCalls.filter((call) => call.name === "set_member_projects").at(-1).args.p_project_ids, [projectId]);
+  await reopenMember("normal@example.test");
+  assert.deepEqual(await checkedProjects(), ["Projeto fictício ativo"]);
+
+  // A Normal member cannot acquire requesters; only active Admin/Intermediário
+  // options may approve, never the same member. Order is stored as positions.
+  assert.equal(await evaluate(`(${requesterLinks}).querySelectorAll('input').length`), 0);
+  await fillLabel("Adicionar aprovador", userId, "document.querySelector('dialog')");
+  await click('dialog button[aria-label="Subir etapa 2"]');
+  assert.deepEqual(await orderedApprovers(), ["Pessoa fictícia Admin", "Pessoa fictícia Intermediária"]);
+  await clickText("dialog button", "Salvar permissões de aprovação");
+  await waitFor(() => bodyIncludes("Vínculos de aprovação salvos."), "ordem de aprovação persistida");
+  const forwardCall = rpcCalls.filter((call) => call.name === "set_member_approvers").at(-1).args;
+  assert.deepEqual(forwardCall, { p_company_id: companyId, p_member_id: employeeId, p_approver_ids: [userId, approverId], p_requester_ids: [] });
+  assert.deepEqual(persistedApprovers(employeeId), [[userId, 1], [approverId, 2]]);
+  await reopenMember("normal@example.test");
+  assert.deepEqual(await orderedApprovers(), ["Pessoa fictícia Admin", "Pessoa fictícia Intermediária"]);
+
+  // Edit the inverse direction: remove Normal from this approver's requesters
+  // and add Admin. The unrelated Normal -> Admin link must remain untouched.
+  await reopenMember("intermediario@example.test");
+  assert.deepEqual(await checkedRequesters(), ["Pessoa fictícia Normal"]);
+  assert.deepEqual(await evaluate(`Array.from((${approvalLinks}).querySelector('select').options).map((option) => option.value).filter(Boolean)`), [userId], "Normal e o próprio Intermediário não aparecem como aprovadores elegíveis.");
+  assert.equal(await evaluate(`Array.from((${requesterLinks}).querySelectorAll('label')).some((label) => label.textContent.includes('Pessoa fictícia Intermediária'))`), false, "Sem autoaprovação também na direção dos solicitantes.");
+  await evaluate(`Array.from((${requesterLinks}).querySelectorAll('label')).find((label) => label.textContent.includes('Pessoa fictícia Normal')).querySelector('input').click()`);
+  await evaluate(`Array.from((${requesterLinks}).querySelectorAll('label')).find((label) => label.textContent.includes('Pessoa fictícia Admin')).querySelector('input').click()`);
+  await clickText("dialog button", "Salvar permissões de aprovação");
+  await waitFor(() => bodyIncludes("Vínculos de aprovação salvos."), "solicitantes persistidos");
+  assert.deepEqual(rpcCalls.filter((call) => call.name === "set_member_approvers").at(-1).args.p_requester_ids, [userId]);
+  assert.deepEqual(persistedApprovers(employeeId), [[userId, 1]]);
+  assert.deepEqual(persistedApprovers(userId), [[approverId, 1]]);
+  await reopenMember("intermediario@example.test");
+  assert.deepEqual(await checkedRequesters(), ["Pessoa fictícia Admin"]);
+  await reopenMember("normal@example.test");
+  assert.deepEqual(await orderedApprovers(), ["Pessoa fictícia Admin"], "Remover solicitante na tela inversa deve refletir na tela dele após recarga.");
+
+  // Restore the original requester via the inverse editor; append after the
+  // existing Admin instead of resetting another approver's stored position.
+  await reopenMember("intermediario@example.test");
+  await evaluate(`Array.from((${requesterLinks}).querySelectorAll('label')).find((label) => label.textContent.includes('Pessoa fictícia Admin')).querySelector('input').click()`);
+  await evaluate(`Array.from((${requesterLinks}).querySelectorAll('label')).find((label) => label.textContent.includes('Pessoa fictícia Normal')).querySelector('input').click()`);
+  await clickText("dialog button", "Salvar permissões de aprovação");
+  await waitFor(() => bodyIncludes("Vínculos de aprovação salvos."), "solicitante restaurado");
+  assert.deepEqual(persistedApprovers(employeeId), [[userId, 1], [approverId, 2]]);
+  assert.deepEqual(persistedApprovers(userId), []);
+  assert.equal(rest.member_approvers.some((link) => link.requester_member_id === link.approver_member_id), false);
+  await reopenMember("normal@example.test");
+  assert.deepEqual(await orderedApprovers(), ["Pessoa fictícia Admin", "Pessoa fictícia Intermediária"]);
   await click('button[aria-label="Fechar cadastro"]');
 
   await navigate("projetos");
@@ -369,7 +489,7 @@ try {
   assert.equal(blockedRequests.length, 0, "A aplicação tentou rede externa durante o teste local.");
   assert.ok(routesSeen.has("POST /auth/v1/token"));
   assert.ok(routesSeen.has("GET /rest/v1/company_member_profiles"));
-  console.log("OK — Configurações V2: 14 itens/admin e 5/comum; perfil admin e Meus dados somente leitura; wizard/projetos inativos; despesas/km; menu desktop/mobile; histórico preserva centavos e lançamento assistido exige gravação confirmada. Tudo com Auth/REST/RPC simulados, sem rede externa.");
+  console.log("OK — Configurações V2: 14 itens/admin e 5/comum; perfil admin e Meus dados somente leitura; projetos vinculados e aprovações nas duas direções persistem após recarga, com ordem/papéis/sem autoaprovação; wizard/projetos inativos; despesas/km; menu desktop/mobile; histórico preserva centavos e lançamento assistido exige gravação confirmada. Tudo com Auth/REST/RPC simulados, sem rede externa.");
   console.log(`Capturas locais fictícias: ${artifacts}`);
 } catch (error) {
   console.error(error.message);
