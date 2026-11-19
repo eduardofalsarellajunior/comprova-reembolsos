@@ -1,6 +1,18 @@
 # INEPAD Reembolso — checkpoint de retomada
 
-## Checkpoint atual — autoedição de Meus dados validada localmente; ativação pendente
+## Checkpoint atual — ativação e importação de membros autorizadas; pré-validação
+
+- **Atualizado:** 2026-11-19 14:45 -03:00, America/Sao_Paulo.
+- **Responsável/objetivo:** Codex local; ativar a autoedição validada e cadastrar todos os membros do novo XLS privado fornecido pelo administrador.
+- **Autorização:** o usuário aprovou expressamente a migration nova e a publicação do front. Também solicitou a importação do novo documento de equipe; não é autorização para alterar Auth, senhas, e-mails, outros sistemas ou inferir vínculos de projetos/aprovadores.
+- **Base:** mesmo clone Local/Windows Temp, índice preservado. Remotos confirmados continuidade `c80f6d827e89816a9090b83cdcba68486d01b8fe` e main `c76c04428ab511beaf7d6fd26ce8e91496206f55`. Produção ainda no deploy anterior READY.
+- **Concluído:** acesso ao projeto destino confirmado ACTIVE_HEALTHY; empresa INEPAD única, seis membros e zero perfis; quatro migrations V2 já aplicadas, nova RPC ausente. RLS ativo nas tabelas envolvidas; helper privado e RPC de importação autenticada com search_path seguro. Revisão independente sem bloqueador no contrato novo.
+- **Em execução:** inventário privado do novo XLS e revisão do release; nenhum dado real importado e nova migration ainda não aplicada nesta captura. Advisors anteriores não apontam problema da nova alteração; alertas de outros schemas não serão corrigidos fora do escopo.
+- **Arquivos/testes:** código permanece o snapshot validado (20 testes, build, lint, browser simulados e smoke da etapa anterior). Alterados apenas documentos nesta microetapa. Não repetir dados pessoais no Git nem testes reais sem contexto controlado.
+- **Próxima ação exata:** publicar checkpoint sobre c80f6d8; aplicar somente migration self_profile_edit após verificar hash/ausência; conferir ACL/RLS/contagens. Preparar release fast-forward em clone separado e verificar Vercel. Para XLS, executar prévia autenticada e importação sem sobrescrever perfis/tipos existentes, somente na empresa INEPAD.
+- **Recuperação/limites:** migration aditiva pode permanecer sem a UI nova; rollback do front para main anterior não exclui perfis. Importação terá resumo de novos/existentes e validação por e-mail, sem exclusões. Não enviar convites, ativar e-mail/ERP ou modificar public/Auth/Storage. Sincronização desta revisão pendente até confirmar SHA remoto.
+
+## Checkpoint anterior — autoedição de Meus dados validada localmente; ativação pendente
 
 - **Atualizado:** 2026-11-19 14:35:39 -03:00, America/Sao_Paulo.
 - **Ambiente/base:** Local/Windows no clone separado Temp `inepad-resume-20261119-92f4fd02a53544888f85b3b439228897`. Árvore local preserva alterações já publicadas; base remota conferida `3fcc5445b9473544ff167a84f216b12eeb945d60`, main `c76c04428ab511beaf7d6fd26ce8e91496206f55`.
