@@ -1,13 +1,13 @@
 # INEPAD Reembolso — estado do projeto
 
-**Referência:** encerramento técnico de Configurações em 19/11/2026, 16:00 -03:00 (America/Sao_Paulo). Leia o [checkpoint](PROJECT_CHECKPOINT.md) para retomar. Banco/catálogo já foram atualizados; o botão novo ainda aguarda release do front.
+**Referência:** Configurações publicadas em produção em 20/11/2026, 19:02 -03:00 (America/Sao_Paulo). Leia o [checkpoint](PROJECT_CHECKPOINT.md) para retomar. Banco, catálogo e front estão alinhados no release verificado.
 
 ## Produto e repositório
 
 - **Produto:** INEPAD Reembolso (antigo COMPROVA); relatórios, leitura de comprovantes e fluxo de aprovação por empresa. A nova marca está no ar; repositório, domínio de produção e nomes dos recursos existentes não mudaram.
 - **Repositório:** [eduardofalsarellajunior/comprova-reembolsos](https://github.com/eduardofalsarellajunior/comprova-reembolsos).
-- **Produção atual:** [comprova-reembolsos.vercel.app](https://comprova-reembolsos.vercel.app/) serve a revisão `698d51040499c8f63362c82f832c79f013475057`, deploy Vercel `dpl_2Na3ymUJ5NBQdxEWQMtENSFjv88q` READY/production, Next.js. O catálogo do banco já foi atualizado, mas o botão Excluir ainda aguarda o novo front.
-- **GitHub:** `main = 698d51040499c8f63362c82f832c79f013475057`. Snapshot funcional desta entrega confirmado em `codex/continuity` no SHA `433f632c73c8daf761462f51862b01f9878064a7`, seguido apenas do registro final. Não confunda o checkout local antigo com a ponta remota.
+- **Produção atual:** [comprova-reembolsos.vercel.app](https://comprova-reembolsos.vercel.app/) serve a revisão `31837daa6820b9c92273667c9db9c02cbc60e608`, deploy Vercel `dpl_D3uLCWSiw1H7iSudVjGnUrJiM1vF` READY/production, Next.js, sem erro de alias.
+- **GitHub:** `main = 31837daa6820b9c92273667c9db9c02cbc60e608`, publicado por fast-forward a partir de `codex/continuity`. O registro pós-deploy segue somente na continuidade para não iniciar novo build. Não confunda o checkout local antigo com a ponta remota.
 - **Checkout local atual:** Local/Windows, clone separado no Temp em `inepad-resume-20261119-92f4fd02a53544888f85b3b439228897`, branch `codex/continuity`, base recebida `c5fdb41`. O checkout OneDrive antigo em `codex/comprova-v1-preview` / `477aecf` foi preservado; não copiar seus arquivos sobre as correções mais recentes. O publisher mantém a origem e confirma separadamente a ponta remota.
 - **Transferência entre contas:** usar a ponta remota de `codex/continuity` e o checkpoint mais recente. A antiga [branch codex/comprova-handoff](https://github.com/eduardofalsarellajunior/comprova-reembolsos/tree/codex/comprova-handoff), SHA `2ae7d6a`, contém somente documentação histórica; a produção continua separada em `main`.
 
@@ -63,7 +63,7 @@
 
 - **Autoedição publicada:** dados pessoais/bancários e departamento/cargo do próprio membro ativo, inclusive Normal/Intermediário. Tipo de usuário continua administrativo e o e-mail de login permanece inalterado. Migration remota `20261119174653`, front READY no SHA `698d510`.
 - Nova migration aditiva `20261119172222_comprova_self_profile_edit.sql`, gerada por CLI, implementa RPC self-only sem parâmetros de tipo ou usuário-alvo. Não concede UPDATE direto. Usuários do novo XLS foram importados (20 linhas; 19 novos, 1 existente).
-- **Projetos concluídos no banco:** migration local `20261119183738_comprova_safe_project_delete.sql`, versão remota `20261119185627`. Catálogo tem 30 nomes únicos ativos; sete repetições dos anexos foram ignoradas e `teste` foi excluído após confirmar zero referências. RPC bloqueia exclusão de projeto com relatório e mantém DELETE direto revogado. UI e testes estão prontos em continuidade, mas ainda precisam de nova autorização para main/deploy.
+- **Projetos em produção:** migration local `20261119183738_comprova_safe_project_delete.sql`, versão remota `20261119185627`. Catálogo tem 30 nomes únicos ativos; sete repetições dos anexos foram ignoradas e `teste` foi excluído após confirmar zero referências. RPC bloqueia exclusão de projeto com relatório e mantém DELETE direto revogado. UI publicada e identificada no bundle de produção.
 
 - GitHub confirmado em continuidade c5fdb41 / main c76c044. Não se repetiu publicação, migration ou configuração do banco; a situação de produção acima é o registro anterior, não nova homologação autenticada.
 - Microetapa concluída: teste browser ampliado dos vínculos de projetos e aprovadores, com persistência sintética e recarga completa. Passaram os dois sentidos da relação, ordem, papéis elegíveis, ausência de autoaprovação e preservação dos vínculos alheios. O browser também preservou as regressões anteriores de centavos/assistido; zero rede externa. Build atual 21/21, sintaxe e lint focado aprovados. Nenhuma regra da aplicação ou migration alterada.
